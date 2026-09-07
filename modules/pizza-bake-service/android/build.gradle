@@ -1,34 +1,25 @@
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
+// The SDK 57 shape for a local Expo module. `expo-module-gradle-plugin`
+// applies com.android.library, kotlin-android and maven-publish, pins the
+// Kotlin stdlib, adds expo-modules-core as a compileOnly dependency, and takes
+// compileSdk/minSdk/targetSdk from the app — so none of that is repeated here,
+// and the module can never drift from the app's SDK levels.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
 
 group = 'expo.modules.pizzabakeservice'
 version = '1.0.0'
 
-def expoModulesCorePlugin = new File(
-  project(":expo-modules-core").projectDir.absolutePath,
-  "ExpoModulesCorePlugin.gradle"
-)
-apply from: expoModulesCorePlugin
-applyKotlinExpoModulesCorePlugin()
-
 android {
   namespace "expo.modules.pizzabakeservice"
   defaultConfig {
-    minSdkVersion 24
-    targetSdkVersion 35
-  }
-  compileSdkVersion 35
-  compileOptions {
-    sourceCompatibility JavaVersion.VERSION_17
-    targetCompatibility JavaVersion.VERSION_17
-  }
-  kotlinOptions {
-    jvmTarget = "17"
+    versionCode 1
+    versionName "1.0.0"
   }
 }
 
 dependencies {
-  implementation project(':expo-modules-core')
-  implementation "org.jetbrains.kotlin:kotlin-stdlib:${getKotlinVersion()}"
+  // NotificationCompat, for the ongoing bake notification.
   implementation "androidx.core:core-ktx:1.13.1"
 }

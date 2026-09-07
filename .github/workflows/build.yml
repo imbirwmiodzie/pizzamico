@@ -20,6 +20,9 @@ jobs:
   build:
     name: Android preview APK
     runs-on: ubuntu-latest
+    # Job-level so the steps below can branch on whether the secret exists.
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,17 +38,23 @@ jobs:
       - run: npm test
       - run: npm run lint
 
+      - name: No EXPO_TOKEN
+        if: env.EXPO_TOKEN == ''
+        run: |
+          echo "::warning::Checks passed, but there is no EXPO_TOKEN secret so nothing was built."
+          echo "Create an access token at https://expo.dev/settings/access-tokens and add it"
+          echo "under Settings → Secrets and variables → Actions as EXPO_TOKEN."
+
       - uses: expo/expo-github-action@v8
+        if: env.EXPO_TOKEN != ''
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: eas build
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::warning::No EXPO_TOKEN secret — skipping the build. Add one under Settings → Secrets → Actions."
-            exit 0
-          fi
-          npx eas build --platform android --profile preview --non-interactive --no-wait
+      - name: Link the EAS project
+        if: env.EXPO_TOKEN != ''
+        run: ./scripts/eas-bootstrap.sh
+
+      - name: Build
+        if: env.EXPO_TOKEN != ''
+        run: eas build --platform android --profile preview --non-interactive --no-wait

@@ -6,6 +6,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -131,8 +132,16 @@ class PizzaVoice private constructor(context: Context) {
         ready = false
     }
 
-    /** Duck whatever music is playing for the length of the shout. */
+    /**
+     * Duck whatever music is playing for the length of the shout.
+     *
+     * AudioFocusRequest is API 26. On older devices the shout simply plays
+     * over the top rather than ducking — worth losing, since the alternative
+     * is the deprecated focus API for a sliver of devices.
+     */
     private fun requestFocus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
         val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
             .setAudioAttributes(speechAttributes)
             .build()
@@ -141,6 +150,7 @@ class PizzaVoice private constructor(context: Context) {
     }
 
     private fun abandonFocus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         focusRequest = null
     }

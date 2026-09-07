@@ -1,6 +1,8 @@
 package expo.modules.pizzabakeservice
 
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -55,13 +57,19 @@ class PizzaBakeServiceModule : Module() {
                 turnLine = plan.turnLine,
                 doneLine = plan.doneLine,
             )
-            context.startForegroundService(data.toIntent(context))
+            // startForegroundService arrived in API 26; before that, plain
+            // startService followed by startForeground was the way, and the
+            // service does the startForeground half either way.
+            val intent = data.toIntent(context)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
 
         Function("stopBake") {
-            context.stopService(
-                android.content.Intent(context, BakeForegroundService::class.java),
-            )
+            context.stopService(Intent(context, BakeForegroundService::class.java))
         }
 
         Function("shout") { text: String, pitch: Double, rate: Double ->

@@ -160,6 +160,10 @@ class BakeForegroundService : Service() {
     }
 
     private fun createChannel() {
+        // Channels arrived in API 26; below that the notification's own
+        // priority is the whole story.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Bake in progress",

@@ -17,7 +17,7 @@ been built yet, and the Kotlin module has never been through a compiler.
 | CI | `.github/workflows/build.yml`, `update.yml` | Native changes build; everything else ships over the air. Both run tests + `tsc --noEmit` first, and skip the EAS step with a warning until `EXPO_TOKEN` exists. |
 | Domain logic | `src/domain/*.ts` | Ported 1:1 from the Kotlin build. Pure, no platform imports. |
 | Unit tests | `__tests__/*.test.ts` | 31 tests over the countdown, the parser and the mic's status line. `npm test` — green. |
-| Native module | `modules/pizza-bake-service/**` | Android foreground service + shouted TTS + 880 Hz tick. iOS stub. **Never compiled** — expect to fix a Gradle detail or two. |
+| Native module | `modules/pizza-bake-service/**` | Android foreground service + shouted TTS + 880 Hz tick. iOS stub. **Never compiled**, but reviewed against SDK 57 — see "The native module" below. |
 | State | `src/state/*.ts` | `bakeStore` owns the live bake; `useSettings` persists the three tweakables; `useVoice` runs the microphone. |
 | Screens | `App.tsx`, `src/ui/*.tsx` | Timer screen, settings, the Skia pizza, the six line icons. |
 | Design tokens | `src/theme/tokens.ts` | Verbatim from the handoff's `styles.css`, plus the two font families and the type scale. |
@@ -44,6 +44,31 @@ npx expo export --platform android    bundles, 3.1MB + 6 font files
   paper — the ring sits at 105.8dp from the centre against a 94dp crust, well
   inside the 322dp box — but nobody has looked at it.
 
+## The native module
+
+Read against the installed SDK 57 sources rather than compiled, so this is
+review, not proof. Four things were wrong and are fixed:
+
+- `android/build.gradle` called `getKotlinVersion()`, which SDK 57's
+  `ExpoModulesCorePlugin.gradle` no longer defines — configuration would have
+  failed outright. It now uses the `expo-module-gradle-plugin` shape every
+  bundled module uses, which also stops `compileSdk` drifting from the app's.
+- `startForegroundService`, `NotificationChannel` and `AudioFocusRequest` are
+  all API 26, and `minSdkVersion` is 24. Each is guarded now; the pre-26 paths
+  are the ones those APIs replaced, so old devices degrade rather than crash.
+- `expo-updates` was never installed, so the `updates.url` and the fingerprint
+  `runtimeVersion` in `app.json` pointed at machinery that was not in the app.
+  The whole over-the-air half of the CI would have failed on the first push.
+  It is now a dependency.
+
+The DSL the module uses — `Events`, `OnStartObserving`, `OnStopObserving`,
+`Property(name) { }`, `Function`, `Record`/`@Field` — was checked against
+`expo-modules-core`'s Kotlin sources and all of it exists in SDK 57.
+
+What is still unproven is everything a compiler would tell you: the Kotlin
+itself, the manifest merge, and the `<property>` element on the special-use
+service.
+
 ## Dependency versions
 
 `npx expo install --fix` could not reach `api.expo.dev` from the machine this
@@ -61,18 +86,26 @@ Two version notes worth keeping:
   and `babel.config.js` resolves it from the project root, so without it Metro
   fails to construct a transformer before it reads a single file.
 
-## Before the first build
+## Getting an APK
 
-1. `npm install` — then `npx expo install --fix` to confirm the versions.
-2. `npm test && npm run lint`.
-3. `npx eas init` — replaces the two `REPLACE_WITH_YOUR_EAS_PROJECT_ID`
-   placeholders in `app.json`.
-4. Add `EXPO_TOKEN` to the repo's Actions secrets (expo.dev → account settings
-   → access tokens), then let `build.yml` run, or build directly with
-   `npx eas build -p android --profile preview`.
+Only one thing is needed that cannot be done from a checkout: an Expo account.
 
-Expect the first native build to need a fix or two in
-`modules/pizza-bake-service/android/build.gradle`.
+1. Create an access token at <https://expo.dev/settings/access-tokens>.
+2. Add it to the repo under Settings → Secrets and variables → Actions, named
+   exactly `EXPO_TOKEN`.
+3. Run the **Build (native change)** workflow (Actions → Run workflow).
+
+`scripts/eas-bootstrap.sh` does the `eas init` step inside CI, so nobody needs
+a local Expo CLI: it creates the EAS project the first time, links to it by
+slug afterwards, and writes the matching `updates.url`. It prints the project
+id — commit that into `app.json` in both places and the step turns into a
+no-op.
+
+Without the secret both workflows still run the tests and the typecheck, and
+say in a warning annotation that they skipped the EAS step. Nothing fails red.
+
+To build from a machine instead: `npm i -g eas-cli && eas login && eas init &&
+eas build -p android --profile preview`.
 
 ## If the UI needs changing
 
