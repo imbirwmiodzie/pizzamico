@@ -1,0 +1,51 @@
+# Spends one of the fifteen free Android builds a month, so it only runs when
+# a change is actually native: the manifest, the dependency set, a config
+# plugin, or the local module's Kotlin. Everything else goes out over the air
+# through update.yml.
+name: Build (native change)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - app.json
+      - eas.json
+      - package.json
+      - package-lock.json
+      - plugins/**
+      - modules/**
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Android preview APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The domain rules and the types are cheap to check and expensive to get
+      # wrong once an APK is in someone's hand.
+      - run: npm test
+      - run: npm run lint
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: eas build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::warning::No EXPO_TOKEN secret — skipping the build. Add one under Settings → Secrets → Actions."
+            exit 0
+          fi
+          npx eas build --platform android --profile preview --non-interactive --no-wait

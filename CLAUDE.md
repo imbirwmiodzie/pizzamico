@@ -24,9 +24,10 @@ bugs were fixed in both builds and should stay fixed:
 
 ```
 src/domain/     Pure TypeScript. No React, no Expo, no platform imports.
-                timerEngine · bakeState · voiceCommands · toneCopy · settings
+                timerEngine · bakeState · voiceCommands · voiceStatus ·
+                toneCopy · settings
                 All of it is unit-tested; treat it as the spec in code form.
-src/state/      bakeStore (the one live bake) · useBake · useSettings
+src/state/      bakeStore (the one live bake) · useBake · useSettings · useVoice
 src/ui/         Screens and the Skia pizza
 src/theme/      The design-system tokens, copied verbatim from styles.css
 modules/pizza-bake-service/
@@ -68,6 +69,7 @@ npm test             # the domain unit tests
 npm run lint         # tsc --noEmit
 npx eas init         # fills the EAS project id placeholders in app.json
 npx expo start --dev-client
+node scripts/make-icon.mjs   # redraws assets/icon.png from the tokens
 ```
 
 ## Conventions

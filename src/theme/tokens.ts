@@ -80,3 +80,30 @@ export function mixRgb(
     Math.round((from[i] ?? 0) + ((to[i] ?? 0) - (from[i] ?? 0)) * clamped);
   return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
 }
+
+/**
+ * Typefaces. The handoff's "Classical" stack is a display serif for the
+ * headings and the readout, and a text serif for everything you actually
+ * read; `@expo-google-fonts` gives us the real ones rather than the system
+ * fallback the Kotlin build had to settle for. The keys are the family names
+ * `useFonts` registers, so they double as `fontFamily` values.
+ *
+ * Only weights the screens actually use are listed: each face is a separate
+ * ~670KB file in the APK, so an unused one is dead weight, not an option.
+ */
+export const Fonts = {
+  displaySemiBold: 'CormorantGaramond_600SemiBold',
+  bodyRegular: 'Lora_400Regular',
+  bodySemiBold: 'Lora_600SemiBold',
+} as const;
+
+/** The type scale, in the sizes the handoff sets. */
+export const Type = {
+  /** The countdown. 80px, tabular figures, accent700. */
+  readout: 80,
+  title: 27,
+  kicker: 11,
+  body: 14,
+  label: 13,
+  chip: 12,
+} as const;
