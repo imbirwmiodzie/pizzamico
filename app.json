@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "Pizza Timer",
+    "slug": "pizza-voice-timer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "pizzatimer",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f3f2f2",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#f3f2f2",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "package": "com.ilforno.pizzatimer",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#f3f2f2",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.WAKE_LOCK"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.ilforno.pizzatimer",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Pizza Timer listens for spoken commands like \"start\", \"pause\" and \"three minutes\".",
+        "NSSpeechRecognitionUsageDescription": "Spoken commands are turned into text on your device so the timer can act on them.",
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Pizza Timer listens for spoken commands like \"start\", \"pause\" and \"three minutes\".",
+          "speechRecognitionPermission": "Spoken commands are turned into text on your device so the timer can act on them.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    }
+  }
+}
