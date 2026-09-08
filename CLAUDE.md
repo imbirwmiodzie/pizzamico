@@ -43,17 +43,24 @@ own idea of "remaining" — that is how the shout and the display drift apart.
 
 ## Build and iterate
 
-Free EAS accounts get 15 Android builds a month, so the CI is split:
+Free EAS accounts get 15 Android builds a month, so builds are a decision and
+updates are automatic. One mechanism per job:
 
-- `.github/workflows/build.yml` — fires only on native changes (`app.json`,
-  `package.json`, `plugins/`, `modules/`). Spends a build.
-- `.github/workflows/update.yml` — every other push publishes an EAS Update
-  over the air. Spends nothing.
+- `.github/workflows/checks.yml` — every push, any branch. Unit tests and
+  `tsc --noEmit`. Needs no secrets.
+- `.eas/workflows/build-android.yml` — **no trigger, on purpose.** Run it from
+  the Workflows tab on expo.dev or with `eas workflow:run`. Spends a build.
+- `.eas/workflows/publish-update.yml` — every push to `main` or `claude/**`
+  publishes an EAS Update to the `preview` branch. Spends nothing.
 
-Both run the unit tests and `tsc --noEmit` first. A native change means: new
-or upgraded native dependency, changed permissions or plugins, edits to the
-Kotlin module, or an SDK bump. Everything else — UI, timer rules, copy, voice
-parsing — ships over the air to an already-installed APK.
+Don't give the build workflow an `on:` trigger, and don't add an EAS step back
+into GitHub Actions — two mechanisms publishing the same update is how you get
+every push shipped twice.
+
+A native change means: new or upgraded native dependency, changed permissions
+or plugins, edits to the Kotlin module, or an SDK bump. Those need a build.
+Everything else — UI, timer rules, copy, voice parsing — ships over the air to
+an already-installed APK.
 
 Runtime versioning is on the `fingerprint` policy, so an update is only
 delivered to a build whose native fingerprint matches. If you change native
@@ -67,7 +74,7 @@ npm install          # first time, and after any dependency change
 npx expo install --fix   # aligns dependency versions with the SDK — run once
 npm test             # the domain unit tests
 npm run lint         # tsc --noEmit
-npx eas init         # fills the EAS project id placeholders in app.json
+eas workflow:run .eas/workflows/build-android.yml   # spends a build
 npx expo start --dev-client
 node scripts/make-icon.mjs   # redraws assets/icon.png from the tokens
 ```

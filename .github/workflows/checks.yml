@@ -1,0 +1,26 @@
+# GitHub runs the checks; EAS runs the builds and the updates (see
+# .eas/workflows/). One mechanism per job — when both had an EAS step, adding
+# an EXPO_TOKEN secret would have published every update twice.
+#
+# Needs no secrets, so it works on a fresh fork and on every branch.
+name: Checks
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: Tests and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint

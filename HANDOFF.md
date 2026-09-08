@@ -14,7 +14,7 @@ been built yet, and the Kotlin module has never been through a compiler.
 | Area | Files | Notes |
 |---|---|---|
 | Project scaffolding | `package.json`, `app.json`, `eas.json`, `tsconfig.json`, `babel.config.js` | Expo SDK 57, RN 0.86.3. Versions now match the SDK — see "Dependency versions" below. |
-| CI | `.github/workflows/build.yml`, `update.yml` | Native changes build; everything else ships over the air. Both run tests + `tsc --noEmit` first, and skip the EAS step with a warning until `EXPO_TOKEN` exists. |
+| CI | `.github/workflows/checks.yml`, `.eas/workflows/*.yml` | GitHub runs tests + `tsc --noEmit` on every push, no secrets needed. EAS runs the build (manual) and the over-the-air update (on push). |
 | Domain logic | `src/domain/*.ts` | Ported 1:1 from the Kotlin build. Pure, no platform imports. |
 | Unit tests | `__tests__/*.test.ts` | 31 tests over the countdown, the parser and the mic's status line. `npm test` — green. |
 | Native module | `modules/pizza-bake-service/**` | Android foreground service + shouted TTS + 880 Hz tick. iOS stub. **Never compiled**, but reviewed against SDK 57 — see "The native module" below. |
@@ -88,24 +88,26 @@ Two version notes worth keeping:
 
 ## Getting an APK
 
-Only one thing is needed that cannot be done from a checkout: an Expo account.
+The EAS project id is committed, and expo.dev is connected to this repo, so a
+build is a button:
 
-1. Create an access token at <https://expo.dev/settings/access-tokens>.
-2. Add it to the repo under Settings → Secrets and variables → Actions, named
-   exactly `EXPO_TOKEN`.
-3. Run the **Build (native change)** workflow (Actions → Run workflow).
+1. expo.dev → the project → **Workflows** → **Build Android preview** → Run.
+2. Pick the branch. The `preview` profile builds an APK with internal
+   distribution, so what comes back is a link you can install from the phone.
 
-`scripts/eas-bootstrap.sh` does the `eas init` step inside CI, so nobody needs
-a local Expo CLI: it creates the EAS project the first time, links to it by
-slug afterwards, and writes the matching `updates.url`. It prints the project
-id — commit that into `app.json` in both places and the step turns into a
-no-op.
+From a machine instead: `npm i -g eas-cli && eas login && eas workflow:run
+.eas/workflows/build-android.yml`, or `eas build -p android --profile preview`.
 
-Without the secret both workflows still run the tests and the typecheck, and
-say in a warning annotation that they skipped the EAS step. Nothing fails red.
+Two mechanisms were considered and one was dropped. GitHub Actions can drive
+EAS too, with an `EXPO_TOKEN` secret — that is what the workflows here did at
+first. Once expo.dev's own GitHub integration was in play, keeping both meant
+every push would publish its update twice the moment that secret existed. So
+GitHub does the checks, EAS does the builds and the updates, and neither
+overlaps the other.
 
-To build from a machine instead: `npm i -g eas-cli && eas login && eas init &&
-eas build -p android --profile preview`.
+Note that `.eas/workflows/build-android.yml` has **no `on:` trigger**. That is
+deliberate — fifteen builds a month is not enough for a build to be a side
+effect of pushing. Updates are free and stay automatic.
 
 ## If the UI needs changing
 
