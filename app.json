@@ -35,7 +35,9 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Pizza Timer listens for spoken commands like \"start\", \"pause\" and \"three minutes\".",
         "NSSpeechRecognitionUsageDescription": "Spoken commands are turned into text on your device so the timer can act on them.",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "plugins": [
@@ -46,17 +48,19 @@
         {
           "microphonePermission": "Pizza Timer listens for spoken commands like \"start\", \"pause\" and \"three minutes\".",
           "speechRecognitionPermission": "Spoken commands are turned into text on your device so the timer can act on them.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+        "projectId": "d4f998c7-3878-499b-a0fa-feaee9889b42"
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+      "url": "https://u.expo.dev/d4f998c7-3878-499b-a0fa-feaee9889b42"
     },
     "runtimeVersion": {
       "policy": "fingerprint"
