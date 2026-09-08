@@ -5,7 +5,10 @@ name: Update (over the air)
 
 on:
   push:
-    branches: [main]
+    # `main` is where this lands eventually; the claude/** branch is where it
+    # is being built right now, so a push there gets an APK without waiting on
+    # a merge. Drop the second entry once main is the default.
+    branches: [main, 'claude/**']
     paths-ignore:
       - app.json
       - eas.json
