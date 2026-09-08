@@ -7,12 +7,7 @@
     "scheme": "pizzatimer",
     "userInterfaceStyle": "light",
     "backgroundColor": "#f3f2f2",
-    "newArchEnabled": true,
     "icon": "./assets/icon.png",
-    "splash": {
-      "backgroundColor": "#f3f2f2",
-      "resizeMode": "contain"
-    },
     "android": {
       "package": "com.ilforno.pizzatimer",
       "versionCode": 1,
@@ -20,7 +15,6 @@
         "backgroundColor": "#f3f2f2",
         "foregroundImage": "./assets/icon.png"
       },
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.POST_NOTIFICATIONS",
@@ -51,6 +45,12 @@
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox"
           ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f3f2f2"
         }
       ]
     ],

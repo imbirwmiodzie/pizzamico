@@ -77,7 +77,12 @@ was continued on, so the versions were pinned by hand from
 reads. **Run `npx expo install --fix` once from a machine with network** to
 confirm; it should report nothing to change.
 
-Two version notes worth keeping:
+Three version notes worth keeping:
+
+- TypeScript 6 stopped including every `@types/*` package automatically, so
+  `tsconfig.json` names `jest` and `node` explicitly. Without that the test
+  files stop compiling — `describe` and `expect` become undefined names — and
+  both `npm test` and `npm run lint` fail while the app code is fine.
 
 - `@shopify/react-native-skia` is pinned to the SDK's `2.6.2`. The original
   `^2.2.12` floated up to 2.11, which wants `react-native-worklets >= 0.7`

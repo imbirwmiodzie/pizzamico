@@ -3,6 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
+    // TypeScript 6 stopped pulling in every `@types/*` package automatically,
+    // so the two whose globals we actually rely on are named here. Without
+    // this, `describe` and `expect` are undefined names in the test files.
+    "types": ["jest", "node"],
     "paths": {
       "@/*": ["./src/*"]
     }
