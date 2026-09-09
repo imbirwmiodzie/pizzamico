@@ -9,7 +9,9 @@ export type OvenPreset = 'home' | 'woodFired';
 
 export const OVEN_PRESETS: Record<OvenPreset, readonly number[]> = {
   home: [60, 90, 1800],
-  woodFired: [45, 60, 90],
+  // Every oven needs preheating, and a wood-fired one more than most, so the
+  // long preset is on both rather than being a quirk of the home oven.
+  woodFired: [45, 60, 90, 1800],
 };
 
 /**

@@ -1,4 +1,5 @@
 import type { BakeEvent, BakeState } from './bakeState';
+import { isPreheat } from './settings';
 
 /**
  * Pure reducer for the countdown. Every rule the handoff specifies lives
@@ -82,11 +83,18 @@ export function setDuration(state: BakeState, seconds: number): BakeState {
 /**
  * Keep the state consistent when the oven preset changes underneath us: if
  * the current duration is not one this oven offers and nothing is running,
- * snap to that oven's middle preset.
+ * snap to the middle of that oven's *bake* presets.
+ *
+ * Preheats are excluded from the choice on purpose. Changing the oven should
+ * never silently arm half an hour of warming up — someone who was about to
+ * bake would not notice until the pizza was long overdue.
  */
 export function conformToOven(state: BakeState, presets: readonly number[]): BakeState {
   if (state.running || presets.includes(state.presetSeconds)) return state;
-  const target = presets[Math.floor(presets.length / 2)];
+
+  const bakes = presets.filter((seconds) => !isPreheat(seconds));
+  const choices = bakes.length > 0 ? bakes : presets;
+  const target = choices[Math.floor(choices.length / 2)];
   if (target === undefined) return state;
   return { ...state, presetSeconds: target, remaining: target, hasTurned: false };
 }

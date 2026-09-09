@@ -154,6 +154,8 @@ export function TimerScreen({
         </Text>
         <Text style={[styles.status, done && styles.statusDone]}>{status}</Text>
 
+        <ProgressBar progress={progress} />
+
         <View style={styles.presets}>
           {presets.map((seconds) => {
             const selected = seconds === bake.presetSeconds;
@@ -250,6 +252,23 @@ export function TimerScreen({
           ))}
         </View>
       </View>
+    </View>
+  );
+}
+
+/**
+ * How far through the bake we are, as a bar rather than as char marks on the
+ * pizza. The illustration shows the mood; this shows the number.
+ */
+function ProgressBar({ progress }: { progress: number }) {
+  const percent = Math.round(Math.min(1, Math.max(0, progress)) * 100);
+  return (
+    <View
+      style={styles.track}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: percent }}
+    >
+      <View style={[styles.fill, { width: `${percent}%` }]} />
     </View>
   );
 }
@@ -369,9 +388,11 @@ const styles = StyleSheet.create({
     color: Tokens.accent800,
   },
   readout: {
-    fontFamily: Fonts.displaySemiBold,
+    fontFamily: Fonts.readout,
     fontSize: Type.readout,
-    lineHeight: Type.readout * 1.06,
+    // Lora carries taller ascenders than the display serif did, so the line
+    // box has to grow with it or the digits clip.
+    lineHeight: Type.readout * 1.14,
     color: Tokens.accent700,
     // The seconds must not shuffle the minutes sideways once a second.
     fontVariant: ['tabular-nums'],
@@ -385,8 +406,26 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     color: Tokens.accent800,
   },
+  track: {
+    alignSelf: 'stretch',
+    marginHorizontal: Space.s4,
+    marginTop: Space.s1,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    backgroundColor: Tokens.neutral200,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Tokens.divider,
+  },
+  fill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: Tokens.accent,
+  },
   presets: {
     flexDirection: 'row',
+    alignSelf: 'stretch',
+    marginHorizontal: Space.s4,
     marginTop: Space.s2,
     backgroundColor: Tokens.surface,
     borderRadius: Radius.lg,
@@ -396,10 +435,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   preset: {
-    minWidth: 74,
+    // Share the row evenly, so three chips and four both look deliberate.
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     paddingVertical: Space.s2,
-    paddingHorizontal: Space.s3,
+    paddingHorizontal: Space.s2,
     borderRadius: Radius.md,
   },
   presetSelected: {

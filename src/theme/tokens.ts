@@ -110,6 +110,13 @@ export const Fonts = {
   displaySemiBold: 'CormorantGaramond_600SemiBold',
   bodyRegular: 'Lora_400Regular',
   bodySemiBold: 'Lora_600SemiBold',
+  /**
+   * The countdown, and deliberately not the display serif: Cormorant's thin
+   * strokes and short figures look right in a heading but are hard to read at
+   * a glance from across a kitchen, which is the one job this number has.
+   * Lora is already loaded, so this costs no extra font file.
+   */
+  readout: 'Lora_600SemiBold',
 } as const;
 
 /** The type scale, in the sizes the handoff sets. */

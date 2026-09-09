@@ -141,6 +141,12 @@ describe('oven presets', () => {
     expect(conformed.remaining).toBe(60);
   });
 
+  it('never snaps onto a preheat — that would arm half an hour unnoticed', () => {
+    const conformed = conformToOven(bake({ presetSeconds: 12, remaining: 12 }), OVEN_PRESETS.home);
+    expect(isPreheat(conformed.presetSeconds)).toBe(false);
+    expect(OVEN_PRESETS.home).toContain(conformed.presetSeconds);
+  });
+
   it('leaves a valid or running timer alone', () => {
     const valid = bake();
     expect(conformToOven(valid, OVEN_PRESETS.woodFired)).toEqual(valid);
@@ -149,9 +155,14 @@ describe('oven presets', () => {
     expect(conformToOven(running, OVEN_PRESETS.woodFired)).toEqual(running);
   });
 
+  it('offers the preheat on every oven', () => {
+    expect(OVEN_PRESETS.home.filter(isPreheat)).toHaveLength(1);
+    expect(OVEN_PRESETS.woodFired.filter(isPreheat)).toHaveLength(1);
+  });
+
   it('calls the long preset a preheat and the short ones a bake', () => {
     expect(OVEN_PRESETS.home.map(isPreheat)).toEqual([false, false, true]);
-    expect(OVEN_PRESETS.woodFired.map(isPreheat)).toEqual([false, false, false]);
+    expect(OVEN_PRESETS.woodFired.map(isPreheat)).toEqual([false, false, false, true]);
 
     // The boundary itself counts as a preheat, and a voice-set duration is
     // judged by the same rule as a preset chip.
@@ -162,6 +173,6 @@ describe('oven presets', () => {
 
   it('labels durations the way the handoff does', () => {
     expect(OVEN_PRESETS.home.map(presetLabel)).toEqual(['60s', '90s', '30 min']);
-    expect(OVEN_PRESETS.woodFired.map(presetLabel)).toEqual(['45s', '60s', '90s']);
+    expect(OVEN_PRESETS.woodFired.map(presetLabel)).toEqual(['45s', '60s', '90s', '30 min']);
   });
 });
