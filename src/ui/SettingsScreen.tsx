@@ -5,6 +5,7 @@ import type { AppSettings, OvenPreset, ToppingStyle, VoiceTone } from '../domain
 import { OVEN_PRESETS, presetLabel } from '../domain/settings';
 import { Fonts, Radius, Space, Tokens, Type } from '../theme/tokens';
 import { Icon } from './icons';
+import { UpdateStatus } from './UpdateStatus';
 
 /**
  * The three tweakables from the handoff — topping, tone, oven — and nothing
@@ -86,6 +87,8 @@ export function SettingsScreen({
             onSelect={(ovenPreset) => onChange({ ovenPreset })}
           />
         </Field>
+
+        <UpdateStatus />
       </ScrollView>
     </View>
   );

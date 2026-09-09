@@ -11,7 +11,12 @@ name: Publish update
 
 on:
   push:
-    branches: ['main', 'claude/**']
+    # Belt and braces on the branch pattern. eas-cli's own template ships
+    # `['*']` for "any push", and it is not documented whether `*` crosses a
+    # slash — if it does not, a branch called claude/something would never
+    # have fired this. Listing all three costs nothing and removes the
+    # question. It can also be run by hand from the Workflows tab.
+    branches: ['*', 'claude/**', 'main']
 
 jobs:
   publish_preview_update:
