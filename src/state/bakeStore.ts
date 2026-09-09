@@ -3,6 +3,7 @@ import * as Speech from 'expo-speech';
 
 import PizzaBakeService from '../../modules/pizza-bake-service';
 import type { BakeState } from '../domain/bakeState';
+import { isPreheat } from '../domain/settings';
 import { INITIAL_BAKE } from '../domain/bakeState';
 import { ITALIAN_LINES, SHOUT } from '../domain/toneCopy';
 import {
@@ -84,13 +85,16 @@ function beginCountdown(from: BakeState) {
   set({ ...from, running: true, endAt });
 
   if (nativeDrivesCues) {
+    // A preheat has nothing to turn over half way through, and what is ready
+    // at the end is the oven, not a pizza.
+    const preheat = isPreheat(from.presetSeconds);
     PizzaBakeService.startBake({
       endAt,
       totalSeconds: from.presetSeconds,
-      turnAtRemaining: from.hasTurned ? -1 : turnAtRemaining(from.presetSeconds),
+      turnAtRemaining: from.hasTurned || preheat ? -1 : turnAtRemaining(from.presetSeconds),
       tickEverySeconds: TICK_INTERVAL_SECONDS,
       turnLine: ITALIAN_LINES.turn,
-      doneLine: ITALIAN_LINES.done,
+      doneLine: preheat ? ITALIAN_LINES.preheatDone : ITALIAN_LINES.done,
     });
   }
 
@@ -125,13 +129,19 @@ function tickDisplay() {
   if (remaining <= 0) {
     stopDisplayTimer();
     set({ remaining: 0, running: false, endAt: null });
-    if (!nativeDrivesCues) speakFallback(ITALIAN_LINES.done, SHOUT.done);
+    if (!nativeDrivesCues) {
+      const line = isPreheat(snapshot.presetSeconds) ? ITALIAN_LINES.preheatDone : ITALIAN_LINES.done;
+      speakFallback(line, SHOUT.done);
+    }
     return;
   }
 
   // On the platforms where JS owns the cues, fire them here.
   if (!nativeDrivesCues) {
-    const crossedTurn = !snapshot.hasTurned && remaining <= turnAtRemaining(snapshot.presetSeconds);
+    const crossedTurn =
+      !snapshot.hasTurned &&
+      !isPreheat(snapshot.presetSeconds) &&
+      remaining <= turnAtRemaining(snapshot.presetSeconds);
     if (crossedTurn) {
       set({ hasTurned: true, turnTrigger: snapshot.turnTrigger + 1 });
       speakFallback(ITALIAN_LINES.turn, SHOUT.turn);

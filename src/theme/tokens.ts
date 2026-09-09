@@ -61,6 +61,21 @@ export const PizzaRamp = {
   char: '#5c3a1e',
 } as const;
 
+/**
+ * Oven illustration ramps — cold → up to temperature. Same channel-wise
+ * interpolation as the pizza, so the two illustrations heat the same way.
+ */
+export const OvenRamp = {
+  coldCavity: [45, 43, 43],
+  hotCavity: [126, 42, 12],
+  coldCoil: [155, 151, 151],
+  hotCoil: [255, 162, 51],
+  /** The oven's body and its trim, from the neutral scale. */
+  body: '#eae7e7',
+  trim: '#9b9797',
+  outline: '#2d2b2b',
+} as const;
+
 /** Flame gradient stops, bottom → top (CSS `linear-gradient(to top, …)`). */
 export const Flame = {
   deep: '#d6360f',

@@ -10,7 +10,7 @@ import {
   tickSecond,
   toggleRun,
 } from '../src/domain/timerEngine';
-import { OVEN_PRESETS, presetLabel } from '../src/domain/settings';
+import { OVEN_PRESETS, isPreheat, presetLabel } from '../src/domain/settings';
 
 const bake = (over: Partial<BakeState> = {}): BakeState => ({
   presetSeconds: 90,
@@ -149,8 +149,19 @@ describe('oven presets', () => {
     expect(conformToOven(running, OVEN_PRESETS.woodFired)).toEqual(running);
   });
 
+  it('calls the long preset a preheat and the short ones a bake', () => {
+    expect(OVEN_PRESETS.home.map(isPreheat)).toEqual([false, false, true]);
+    expect(OVEN_PRESETS.woodFired.map(isPreheat)).toEqual([false, false, false]);
+
+    // The boundary itself counts as a preheat, and a voice-set duration is
+    // judged by the same rule as a preset chip.
+    expect(isPreheat(1799)).toBe(false);
+    expect(isPreheat(1800)).toBe(true);
+    expect(isPreheat(3600)).toBe(true);
+  });
+
   it('labels durations the way the handoff does', () => {
-    expect(OVEN_PRESETS.home.map(presetLabel)).toEqual(['60s', '90s', '12 min']);
+    expect(OVEN_PRESETS.home.map(presetLabel)).toEqual(['60s', '90s', '30 min']);
     expect(OVEN_PRESETS.woodFired.map(presetLabel)).toEqual(['45s', '60s', '90s']);
   });
 });

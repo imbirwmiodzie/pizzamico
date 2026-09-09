@@ -1,6 +1,7 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -15,12 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isDone, isPaused, progressOf, timeLabel } from '../domain/bakeState';
 import type { AppSettings } from '../domain/settings';
-import { OVEN_PRESETS, presetLabel } from '../domain/settings';
+import { OVEN_PRESETS, isPreheat, presetLabel } from '../domain/settings';
 import { ITALIAN_LINES, toneCopy } from '../domain/toneCopy';
 import { transcriptLine } from '../domain/voiceStatus';
 import { useBake } from '../state/useBake';
 import { useVoice } from '../state/useVoice';
 import { Fonts, Radius, Space, Tokens, Type } from '../theme/tokens';
+import { OvenIllustration } from './OvenIllustration';
 import { ILLUSTRATION_BOX, PizzaIllustration } from './PizzaIllustration';
 import { Icon } from './icons';
 
@@ -43,7 +45,6 @@ export function TimerScreen({
   onOpenSettings: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
   const { bake, actions } = useBake();
   const voice = useVoice(settings.voiceTone);
 
@@ -73,11 +74,34 @@ export function TimerScreen({
     return () => clearTimeout(timer);
   }, [bake.turnTrigger]);
 
-  // Big enough to read across a kitchen, small enough that the fire ring and
-  // the readout never meet.
-  const pizzaSize = Math.min(width - Space.s4 * 2, ILLUSTRATION_BOX, height * 0.36);
+  // Measured rather than guessed: the slot takes whatever height is left once
+  // the readout, the presets and everything below them have had theirs, so
+  // the illustration can never push the transport row off its own space.
+  const [slot, setSlot] = useState({ width: 0, height: 0 });
+  const onSlotLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setSlot((previous) =>
+      previous.width === width && previous.height === height ? previous : { width, height },
+    );
+  };
+  const illustrationSize = Math.max(
+    0,
+    Math.min(slot.width, slot.height, ILLUSTRATION_BOX),
+  );
 
-  const status = done ? tone.done : bake.running ? tone.baking : paused ? tone.paused : tone.ready;
+  // Half an hour is the oven warming up, not a bake, and it says so.
+  const preheat = isPreheat(bake.presetSeconds);
+  const status = done
+    ? preheat
+      ? tone.preheated
+      : tone.done
+    : bake.running
+      ? preheat
+        ? tone.preheating
+        : tone.baking
+      : paused
+        ? tone.paused
+        : tone.ready;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -100,15 +124,24 @@ export function TimerScreen({
       </View>
 
       <View style={styles.centre}>
-        <View style={{ width: pizzaSize, height: pizzaSize }}>
-          <PizzaIllustration
-            progress={progress}
-            running={bake.running}
-            done={done}
-            toppingStyle={settings.toppingStyle}
-            turnTrigger={bake.turnTrigger}
-            size={pizzaSize}
-          />
+        <View style={styles.illustrationSlot} onLayout={onSlotLayout}>
+          {illustrationSize <= 0 ? null : preheat ? (
+            <OvenIllustration
+              progress={progress}
+              running={bake.running}
+              done={done}
+              size={illustrationSize}
+            />
+          ) : (
+            <PizzaIllustration
+              progress={progress}
+              running={bake.running}
+              done={done}
+              toppingStyle={settings.toppingStyle}
+              turnTrigger={bake.turnTrigger}
+              size={illustrationSize}
+            />
+          )}
           {toast ? (
             <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.toast}>
               <Text style={styles.toastText}>{ITALIAN_LINES.turnToast}</Text>
@@ -238,7 +271,7 @@ function PulseRing({ delay }: { delay: number }) {
   }, [delay, phase]);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(phase.value, [0, 1], [1, 1.9]) }],
+    transform: [{ scale: interpolate(phase.value, [0, 1], [1, 1.6]) }],
     opacity: interpolate(phase.value, [0, 1], [0.35, 0]),
   }));
 
@@ -304,9 +337,20 @@ const styles = StyleSheet.create({
   },
   centre: {
     flex: 1,
+    // minHeight lets this shrink below its content on a short screen instead
+    // of overflowing into the microphone and the transport row.
+    minHeight: 0,
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Space.s2,
+  },
+  illustrationSlot: {
+    flex: 1,
+    minHeight: 0,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toast: {
     position: 'absolute',
@@ -417,7 +461,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Space.s6,
+    gap: Space.s8,
     paddingVertical: Space.s3,
   },
   secondary: {
