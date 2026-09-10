@@ -114,6 +114,30 @@ Note that `.eas/workflows/build-android.yml` has **no `on:` trigger**. That is
 deliberate — fifteen builds a month is not enough for a build to be a side
 effect of pushing. Updates are free and stay automatic.
 
+## If updates never arrive
+
+Worth knowing before losing an evening to it, as happened here.
+
+A build subscribes to a **channel**; `eas update` publishes to a **branch**.
+They are separate objects and EAS does not always link them: a channel created
+at build time, before any update existed, can sit there with **Linked
+branches: None**. Everything looks healthy from both ends — the publish
+workflow succeeds, the runtime versions match — and nothing reaches the phone,
+because the channel resolves to nothing.
+
+The tell is the *shape* of the failure. A channel with no branch makes
+`checkForUpdateAsync` **throw** ("Failed to check for update") rather than
+return "no update available". An error, not a negative answer, points at the
+wiring rather than at the update.
+
+Check it under Update channels on expo.dev, or with `eas channel:view
+preview`. The fix is to link the channel to the branch of the same name.
+
+Settings → Version reports what the app itself believes: which bundle is
+running, its channel, and its runtime version. Compare that runtime against
+the one on the published update — if those differ, the update is ineligible
+and no amount of channel wiring will help; that needs a new build.
+
 ## If the UI needs changing
 
 Everything in `src/ui/` ships over the air, so iterate against an installed
