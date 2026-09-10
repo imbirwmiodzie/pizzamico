@@ -15,7 +15,7 @@ import { writeFileSync } from 'node:fs';
 
 /** What Android actually runs at, so nothing has to resample. */
 const RATE = 48000;
-const MS = 180;
+const MS = 150;
 /** Fade the last of it to true silence — a truncated tail is a click. */
 const RELEASE_MS = 20;
 const ATTACK_MS = 3;
@@ -24,14 +24,18 @@ const PEAK = 0.89;
 
 /**
  * Partials, and how fast each one dies. Higher ones decay first, the way a
- * struck object behaves — and they carry the sound on a small speaker, which
- * has almost nothing to say below about a kilohertz.
+ * struck object behaves.
+ *
+ * The octave leads rather than the fundamental, which puts four fifths of the
+ * energy above a kilohertz. That is deliberate: a phone speaker has almost
+ * nothing to say below that, so a blip built around 880 Hz is pitched exactly
+ * where the hardware is deafest. Chosen by ear from three candidates.
  */
 const PARTIALS = [
-  { hz: 880, gain: 1.0, tau: 0.075 },
-  { hz: 1760, gain: 0.62, tau: 0.048 },
-  { hz: 2640, gain: 0.28, tau: 0.03 },
-  { hz: 3520, gain: 0.12, tau: 0.02 },
+  { hz: 880, gain: 0.55, tau: 0.06 },
+  { hz: 1760, gain: 1.0, tau: 0.05 },
+  { hz: 2640, gain: 0.5, tau: 0.032 },
+  { hz: 3520, gain: 0.22, tau: 0.022 },
 ];
 
 const count = Math.round((RATE * MS) / 1000);
