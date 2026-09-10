@@ -3,17 +3,13 @@ package expo.modules.pizzabakeservice
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
-import android.media.AudioFormat
 import android.media.AudioManager
-import android.media.AudioTrack
+import android.media.SoundPool
 import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
-import kotlin.math.PI
-import kotlin.math.exp
-import kotlin.math.sin
 
 /**
  * The app's mouth: the shouted Italian lines and the 10-second tick.
@@ -38,6 +34,21 @@ class PizzaVoice private constructor(context: Context) {
     private var focusRequest: AudioFocusRequest? = null
     private var tts: TextToSpeech? = null
 
+    private val soundPool: SoundPool = SoundPool.Builder()
+        .setMaxStreams(2)
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build(),
+        )
+        .build()
+
+    private var tickSoundId = 0
+
+    @Volatile
+    private var tickLoaded = false
+
     @Volatile
     private var ready = false
 
@@ -50,6 +61,11 @@ class PizzaVoice private constructor(context: Context) {
         private set
 
     init {
+        soundPool.setOnLoadCompleteListener { _, _, status ->
+            tickLoaded = status == 0
+        }
+        tickSoundId = soundPool.load(appContext, R.raw.tick, 1)
+
         tts = TextToSpeech(appContext) { status ->
             if (status != TextToSpeech.SUCCESS) return@TextToSpeech
             val engine = tts ?: return@TextToSpeech
@@ -90,42 +106,26 @@ class PizzaVoice private constructor(context: Context) {
         engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, text.hashCode().toString())
     }
 
-    /** A short 880 Hz blip — the every-10-seconds tick. */
+    /**
+     * The ten-second blip.
+     *
+     * SoundPool rather than a synthesised AudioTrack: the file is decoded
+     * once at startup and every tick after that is just playback — no
+     * allocation, no resampling, and none of the artefacts that came of
+     * building a waveform by hand at the wrong sample rate. The sound itself
+     * is rendered by `scripts/make-tick.mjs`, where it can be designed with
+     * an envelope that reaches silence and partials a phone speaker can
+     * actually reproduce.
+     */
     fun tick() {
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build(),
-            )
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(SAMPLE_RATE)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build(),
-            )
-            .setBufferSizeInBytes(TICK_PCM.size * 2)
-            .setTransferMode(AudioTrack.MODE_STATIC)
-            .build()
-
-        track.write(TICK_PCM, 0, TICK_PCM.size)
-        track.setNotificationMarkerPosition(TICK_PCM.size)
-        track.setPlaybackPositionUpdateListener(
-            object : AudioTrack.OnPlaybackPositionUpdateListener {
-                override fun onMarkerReached(t: AudioTrack?) {
-                    t?.release()
-                }
-
-                override fun onPeriodicNotification(t: AudioTrack?) = Unit
-            },
-        )
-        track.play()
+        val id = tickSoundId
+        if (id == 0 || !tickLoaded) return
+        soundPool.play(id, TICK_VOLUME, TICK_VOLUME, 1, 0, 1.0f)
     }
 
     fun release() {
         abandonFocus()
+        soundPool.release()
         tts?.stop()
         tts?.shutdown()
         tts = null
@@ -156,10 +156,8 @@ class PizzaVoice private constructor(context: Context) {
     }
 
     companion object {
-        private const val SAMPLE_RATE = 44_100
-        private const val TICK_MS = 150
-        private const val TICK_HZ = 880.0
-        private const val TICK_PEAK = 0.18
+        /** Full scale; the file itself is mastered to a sensible level. */
+        private const val TICK_VOLUME = 1.0f
 
         @Volatile
         private var instance: PizzaVoice? = null
@@ -169,16 +167,5 @@ class PizzaVoice private constructor(context: Context) {
                 instance ?: PizzaVoice(context).also { instance = it }
             }
 
-        /**
-         * 880 Hz sine with a 10 ms attack and an exponential decay to silence
-         * by 150 ms — the envelope the web prototype builds with WebAudio.
-         */
-        private val TICK_PCM: ShortArray = ShortArray(SAMPLE_RATE * TICK_MS / 1000) { i ->
-            val t = i.toDouble() / SAMPLE_RATE
-            val attack = (t / 0.010).coerceAtMost(1.0)
-            val decay = exp(-t / 0.045)
-            val amplitude = TICK_PEAK * attack * decay
-            (sin(2.0 * PI * TICK_HZ * t) * amplitude * Short.MAX_VALUE).toInt().toShort()
-        }
     }
 }
