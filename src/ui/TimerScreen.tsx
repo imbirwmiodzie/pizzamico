@@ -1,7 +1,7 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -21,15 +21,21 @@ import { ITALIAN_LINES, toneCopy } from '../domain/toneCopy';
 import { transcriptLine } from '../domain/voiceStatus';
 import { useBake } from '../state/useBake';
 import { useVoice } from '../state/useVoice';
-import { Fonts, Radius, Space, Tokens, Type } from '../theme/tokens';
+import { Fonts, Radius, Space, Sunset, Type, mixRgb } from '../theme/tokens';
+import { CircularTimer } from './CircularTimer';
 import { OvenIllustration } from './OvenIllustration';
 import { ILLUSTRATION_BOX, PizzaIllustration } from './PizzaIllustration';
 import { Icon } from './icons';
 
 /**
  * The single screen. Layout follows the handoff top to bottom: header, the
- * pizza with its readout and presets, the microphone, the transport, and the
- * three things worth saying out loud.
+ * presets, the pizza clock face, the ring readout, the microphone, the
+ * transport bar, and the three things worth saying out loud.
+ *
+ * The ring readout, the gradient presets and the dark transport bar are a
+ * later restyle onto a warmer palette (see `Sunset` in the theme tokens) —
+ * everything else here, and every piece of domain state it reads, is
+ * unchanged.
  */
 
 /** The wake lock is scoped to this screen so nothing else can hold it open. */
@@ -45,6 +51,7 @@ export function TimerScreen({
   onOpenSettings: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { bake, actions } = useBake();
   const voice = useVoice(settings.voiceTone);
 
@@ -79,15 +86,11 @@ export function TimerScreen({
   // the illustration can never push the transport row off its own space.
   const [slot, setSlot] = useState({ width: 0, height: 0 });
   const onSlotLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setSlot((previous) =>
-      previous.width === width && previous.height === height ? previous : { width, height },
-    );
+    const { width: w, height: h } = event.nativeEvent.layout;
+    setSlot((previous) => (previous.width === w && previous.height === h ? previous : { width: w, height: h }));
   };
-  const illustrationSize = Math.max(
-    0,
-    Math.min(slot.width, slot.height, ILLUSTRATION_BOX),
-  );
+  const illustrationSize = Math.max(0, Math.min(slot.width, slot.height, ILLUSTRATION_BOX));
+  const ringSize = Math.min(width * 0.56, 232);
 
   // Half an hour is the oven warming up, not a bake, and it says so.
   const preheat = isPreheat(bake.presetSeconds);
@@ -123,6 +126,30 @@ export function TimerScreen({
         </Pressable>
       </View>
 
+      <View style={styles.presets}>
+        {presets.map((seconds, index) => {
+          const selected = seconds === bake.presetSeconds;
+          const pillColor = mixRgb(Sunset.pillFrom, Sunset.pillTo, presets.length > 1 ? index / (presets.length - 1) : 0);
+          return (
+            <Pressable
+              key={seconds}
+              onPress={() => actions.selectPreset(seconds)}
+              disabled={bake.running}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, disabled: bake.running }}
+              style={[
+                styles.preset,
+                { backgroundColor: pillColor },
+                !selected && styles.presetUnselected,
+                bake.running && styles.presetDisabled,
+              ]}
+            >
+              <Text style={styles.presetLabel}>{presetLabel(seconds)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <View style={styles.centre}>
         <View style={styles.illustrationSlot} onLayout={onSlotLayout}>
           {illustrationSize <= 0 ? null : preheat ? (
@@ -149,35 +176,15 @@ export function TimerScreen({
           ) : null}
         </View>
 
-        <Text style={styles.readout} accessibilityLabel={`${timeLabel(bake)} remaining`}>
-          {timeLabel(bake)}
-        </Text>
-        <Text style={[styles.status, done && styles.statusDone]}>{status}</Text>
+        <CircularTimer progress={progress} size={ringSize} time={timeLabel(bake)} caption={status} />
 
-        <ProgressBar progress={progress} />
-
-        <View style={styles.presets}>
-          {presets.map((seconds) => {
-            const selected = seconds === bake.presetSeconds;
-            return (
-              <Pressable
-                key={seconds}
-                onPress={() => actions.selectPreset(seconds)}
-                disabled={bake.running}
-                accessibilityRole="radio"
-                accessibilityState={{ selected, disabled: bake.running }}
-                style={[
-                  styles.preset,
-                  selected && styles.presetSelected,
-                  bake.running && styles.presetDisabled,
-                ]}
-              >
-                <Text style={[styles.presetLabel, selected && styles.presetLabelSelected]}>
-                  {presetLabel(seconds)}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoText}>
+            In the oven: <Text style={styles.infoValue}>{elapsedLabel(bake)}</Text>
+          </Text>
+          <Text style={styles.infoText}>
+            Topping: <Text style={styles.infoValue}>{toppingLabel(settings.toppingStyle)}</Text>
+          </Text>
         </View>
       </View>
 
@@ -196,12 +203,7 @@ export function TimerScreen({
             accessibilityLabel={voice.listening ? 'Stop listening' : 'Listen for a command'}
             style={[styles.mic, voice.listening && styles.micOn]}
           >
-            <Icon
-              name="mic"
-              size={30}
-              color={voice.listening ? Tokens.neutral100 : Tokens.accent700}
-              strokeWidth={1.7}
-            />
+            <Icon name="mic" size={30} color={Sunset.onDisc} strokeWidth={1.7} />
           </Pressable>
         </View>
         <Text style={styles.transcript} numberOfLines={2}>
@@ -216,7 +218,7 @@ export function TimerScreen({
           accessibilityLabel="Reset the timer"
           style={styles.secondary}
         >
-          <Icon name="reset" size={22} color={Tokens.neutral800} />
+          <Icon name="reset" size={22} color={Sunset.navyIcon} />
         </Pressable>
 
         <Pressable
@@ -225,11 +227,7 @@ export function TimerScreen({
           accessibilityLabel={bake.running ? 'Pause the bake' : 'Start the bake'}
           style={styles.primary}
         >
-          <Icon
-            name={bake.running ? 'pause' : 'play'}
-            size={28}
-            color={Tokens.neutral100}
-          />
+          <Icon name={bake.running ? 'pause' : 'play'} size={28} color={Sunset.onDisc} />
         </Pressable>
 
         <Pressable
@@ -238,7 +236,7 @@ export function TimerScreen({
           accessibilityLabel="Settings"
           style={styles.secondary}
         >
-          <Icon name="settings" size={22} color={Tokens.neutral800} />
+          <Icon name="settings" size={22} color={Sunset.navyIcon} />
         </Pressable>
       </View>
 
@@ -256,21 +254,23 @@ export function TimerScreen({
   );
 }
 
-/**
- * How far through the bake we are, as a bar rather than as char marks on the
- * pizza. The illustration shows the mood; this shows the number.
- */
-function ProgressBar({ progress }: { progress: number }) {
-  const percent = Math.round(Math.min(1, Math.max(0, progress)) * 100);
-  return (
-    <View
-      style={styles.track}
-      accessibilityRole="progressbar"
-      accessibilityValue={{ min: 0, max: 100, now: percent }}
-    >
-      <View style={[styles.fill, { width: `${percent}%` }]} />
-    </View>
-  );
+/** `m:ss` time spent in the oven so far — the mirror of `timeLabel`, which counts down. */
+function elapsedLabel(bake: { presetSeconds: number; remaining: number }): string {
+  const elapsed = Math.max(0, bake.presetSeconds - bake.remaining);
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function toppingLabel(topping: AppSettings['toppingStyle']): string {
+  switch (topping) {
+    case 'pepperoni':
+      return 'Pepperoni';
+    case 'margherita':
+      return 'Margherita';
+    case 'veggie':
+      return 'Veggie';
+  }
 }
 
 /** One of the two rings that breathe out of the mic while it listens. */
@@ -302,7 +302,7 @@ const MIC = 72;
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Tokens.bg,
+    backgroundColor: Sunset.bg,
   },
   header: {
     flexDirection: 'row',
@@ -316,12 +316,12 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: Type.kicker,
     letterSpacing: 2.4,
-    color: Tokens.accent700,
+    color: Sunset.kicker,
   },
   title: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: Type.title,
-    color: Tokens.text,
+    color: Sunset.text,
   },
   wakePill: {
     flexDirection: 'row',
@@ -331,28 +331,57 @@ const styles = StyleSheet.create({
     paddingVertical: Space.s1 + 1,
     borderRadius: Radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Tokens.divider,
-    backgroundColor: Tokens.surface,
+    borderColor: Sunset.hairline,
+    backgroundColor: Sunset.surface,
   },
   wakePillOn: {
-    backgroundColor: Tokens.accent100,
+    backgroundColor: Sunset.chipOn,
   },
   wakeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Tokens.neutral500,
+    backgroundColor: Sunset.textMuted,
   },
   wakeDotOn: {
-    backgroundColor: Tokens.accent,
+    backgroundColor: Sunset.kicker,
   },
   wakeLabel: {
     fontFamily: Fonts.bodyRegular,
     fontSize: Type.chip,
-    color: Tokens.neutral500,
+    color: Sunset.textMuted,
   },
   wakeLabelOn: {
-    color: Tokens.accent800,
+    color: Sunset.kicker,
+  },
+  presets: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    marginHorizontal: Space.s4,
+    marginTop: Space.s2,
+    gap: Space.s2,
+  },
+  preset: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    paddingVertical: Space.s2 + 2,
+    paddingHorizontal: Space.s2,
+    borderRadius: Radius.lg + 12,
+    borderWidth: 2,
+    borderColor: Sunset.selectedRing,
+  },
+  presetUnselected: {
+    opacity: 0.62,
+    borderColor: 'transparent',
+  },
+  presetDisabled: {
+    opacity: 0.4,
+  },
+  presetLabel: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: Type.body,
+    color: Sunset.onPill,
   },
   centre: {
     flex: 1,
@@ -378,85 +407,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.s3,
     paddingVertical: Space.s1 + 2,
     borderRadius: Radius.lg,
-    backgroundColor: Tokens.accent100,
+    backgroundColor: Sunset.chipOn,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Tokens.divider,
+    borderColor: Sunset.hairline,
   },
   toastText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: Type.body,
-    color: Tokens.accent800,
+    color: Sunset.kicker,
   },
-  readout: {
-    fontFamily: Fonts.readout,
-    fontSize: Type.readout,
-    // Lora carries taller ascenders than the display serif did, so the line
-    // box has to grow with it or the digits clip.
-    lineHeight: Type.readout * 1.14,
-    color: Tokens.accent700,
-    // The seconds must not shuffle the minutes sideways once a second.
-    fontVariant: ['tabular-nums'],
-  },
-  status: {
-    fontFamily: Fonts.bodyRegular,
-    fontSize: Type.body,
-    color: Tokens.neutral500,
-  },
-  statusDone: {
-    fontFamily: Fonts.bodySemiBold,
-    color: Tokens.accent800,
-  },
-  track: {
-    alignSelf: 'stretch',
-    marginHorizontal: Space.s4,
-    marginTop: Space.s1,
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-    backgroundColor: Tokens.neutral200,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Tokens.divider,
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: Tokens.accent,
-  },
-  presets: {
+  infoRow: {
     flexDirection: 'row',
-    alignSelf: 'stretch',
-    marginHorizontal: Space.s4,
-    marginTop: Space.s2,
-    backgroundColor: Tokens.surface,
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Tokens.divider,
-    padding: 3,
-    gap: 3,
+    justifyContent: 'center',
+    gap: Space.s4,
+    marginTop: Space.s1,
   },
-  preset: {
-    // Share the row evenly, so three chips and four both look deliberate.
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'center',
-    paddingVertical: Space.s2,
-    paddingHorizontal: Space.s2,
-    borderRadius: Radius.md,
-  },
-  presetSelected: {
-    backgroundColor: Tokens.accent100,
-  },
-  presetDisabled: {
-    opacity: 0.55,
-  },
-  presetLabel: {
+  infoText: {
     fontFamily: Fonts.bodyRegular,
-    fontSize: Type.body,
-    color: Tokens.neutral800,
+    fontSize: Type.label,
+    color: Sunset.textMuted,
   },
-  presetLabelSelected: {
+  infoValue: {
     fontFamily: Fonts.bodySemiBold,
-    color: Tokens.accent800,
+    color: Sunset.text,
   },
   micZone: {
     alignItems: 'center',
@@ -474,7 +447,7 @@ const styles = StyleSheet.create({
     width: MIC,
     height: MIC,
     borderRadius: MIC / 2,
-    backgroundColor: Tokens.accent,
+    backgroundColor: Sunset.coral,
   },
   mic: {
     width: MIC,
@@ -482,13 +455,10 @@ const styles = StyleSheet.create({
     borderRadius: MIC / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Tokens.accent100,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Tokens.divider,
+    backgroundColor: Sunset.redDeep,
   },
   micOn: {
-    backgroundColor: Tokens.accent,
-    borderColor: Tokens.accent2,
+    backgroundColor: Sunset.coral,
   },
   transcript: {
     minHeight: 38,
@@ -496,32 +466,37 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyRegular,
     fontSize: Type.label,
     lineHeight: 19,
-    color: Tokens.neutral500,
+    color: Sunset.textMuted,
   },
   transport: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Space.s8,
-    paddingVertical: Space.s3,
+    marginHorizontal: Space.s4,
+    marginVertical: Space.s3,
+    paddingVertical: Space.s2,
+    borderRadius: Radius.lg + 20,
+    backgroundColor: Sunset.navy,
   },
   secondary: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Tokens.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Tokens.divider,
   },
   primary: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Tokens.accent,
+    backgroundColor: Sunset.redDeep,
+    // Pops just above the dark bar, like a floating action button.
+    marginTop: -18,
+    borderWidth: 4,
+    borderColor: Sunset.bg,
   },
   hints: {
     alignItems: 'center',
@@ -534,7 +509,7 @@ const styles = StyleSheet.create({
     fontSize: Type.chip,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: Tokens.neutral500,
+    color: Sunset.textMuted,
   },
   hintRow: {
     flexDirection: 'row',
@@ -547,12 +522,12 @@ const styles = StyleSheet.create({
     paddingVertical: Space.s1 + 2,
     borderRadius: Radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Tokens.divider,
-    backgroundColor: Tokens.neutral100,
+    borderColor: Sunset.hairline,
+    backgroundColor: Sunset.surface,
   },
   hintText: {
     fontFamily: Fonts.bodyRegular,
     fontSize: Type.chip,
-    color: Tokens.neutral800,
+    color: Sunset.text,
   },
 });

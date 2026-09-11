@@ -97,6 +97,41 @@ export function mixRgb(
 }
 
 /**
+ * A second, warmer palette for the timer screen only — from a reference
+ * screenshot the project owner supplied later, not the original handoff.
+ * Everything else (Settings, the "Classical" tokens above) is untouched;
+ * this is scoped to `TimerScreen` and the components it composes.
+ */
+export const Sunset = {
+  bg: '#f7f1e6',
+  surface: '#ffffff',
+  /** The wake pill and the turn toast, once toggled/shown. */
+  chipOn: '#fde3d3',
+  hairline: 'rgba(44, 32, 24, 0.14)',
+  text: '#2c2018',
+  textMuted: '#8a7a6c',
+  kicker: '#c2410c',
+
+  /** Preset-pill gradient endpoints, mixed per pill with `mixRgb`. */
+  pillFrom: [242, 163, 60],
+  pillTo: [216, 74, 54],
+  onPill: '#ffffff',
+  selectedRing: 'rgba(255, 255, 255, 0.85)',
+
+  /** The circular readout's disc. */
+  coral: '#ef7a5c',
+  redDeep: '#c8402d',
+  ringTrack: 'rgba(255, 255, 255, 0.32)',
+  ringActive: 'rgba(255, 255, 255, 0.92)',
+  onDisc: '#fff8f4',
+  onDiscMuted: 'rgba(255, 248, 244, 0.82)',
+
+  /** The bottom transport bar. */
+  navy: '#2a211c',
+  navyIcon: '#f3ece3',
+} as const;
+
+/**
  * Typefaces. The handoff's "Classical" stack is a display serif for the
  * headings and the readout, and a text serif for everything you actually
  * read; `@expo-google-fonts` gives us the real ones rather than the system
