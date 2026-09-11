@@ -2,16 +2,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, {
-  Easing,
-  FadeIn,
-  FadeOut,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isDone, isPaused, progressOf, timeLabel } from '../domain/bakeState';
@@ -28,14 +19,16 @@ import { ILLUSTRATION_BOX, PizzaIllustration } from './PizzaIllustration';
 import { Icon } from './icons';
 
 /**
- * The single screen. Layout follows the handoff top to bottom: header, the
- * presets, the pizza clock face, the ring readout, the microphone, the
- * transport bar, and the three things worth saying out loud.
+ * The single screen, restyled to match a reference photo the project owner
+ * supplied: the "PIZZAORO" wordmark with a mic icon beside it, gradient
+ * preset pills, the pizza clock face, a ring readout, a short "in the oven /
+ * topping" line in Polish, and a dark two-icon bottom bar. Every domain read
+ * below (bake state, voice, settings) is unchanged from the original build —
+ * only how it's drawn moved.
  *
- * The ring readout, the gradient presets and the dark transport bar are a
- * later restyle onto a warmer palette (see `Sunset` in the theme tokens) —
- * everything else here, and every piece of domain state it reads, is
- * unchanged.
+ * The photo has no visible reset/play controls — everything happens through
+ * the mic there. This build keeps them, deliberately understated, as a slim
+ * row above the bottom bar: voice is the primary path but not the only one.
  */
 
 /** The wake lock is scoped to this screen so nothing else can hold it open. */
@@ -61,14 +54,15 @@ export function TimerScreen({
   const progress = progressOf(bake);
   const presets = OVEN_PRESETS[settings.ovenPreset];
 
-  const [keepAwake, setKeepAwake] = useState(true);
+  // The photo has no toggle for this, so it's just on for the length of a
+  // bake — the one case a kitchen timer actually needs the screen awake.
   useEffect(() => {
-    if (!keepAwake || !bake.running) return undefined;
+    if (!bake.running) return undefined;
     activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => undefined);
     return () => {
       deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
     };
-  }, [keepAwake, bake.running]);
+  }, [bake.running]);
 
   // The turn toast is driven by the same trigger the pizza's flip is, so it
   // shows up for a halfway cue and for a spoken "gira" alike.
@@ -83,17 +77,18 @@ export function TimerScreen({
 
   // Measured rather than guessed: the slot takes whatever height is left once
   // the readout, the presets and everything below them have had theirs, so
-  // the illustration can never push the transport row off its own space.
+  // the illustration can never push the bottom bar off its own space.
   const [slot, setSlot] = useState({ width: 0, height: 0 });
   const onSlotLayout = (event: LayoutChangeEvent) => {
     const { width: w, height: h } = event.nativeEvent.layout;
     setSlot((previous) => (previous.width === w && previous.height === h ? previous : { width: w, height: h }));
   };
   const illustrationSize = Math.max(0, Math.min(slot.width, slot.height, ILLUSTRATION_BOX));
-  const ringSize = Math.min(width * 0.56, 232);
+  const ringSize = Math.min(width * 0.6, 248);
 
-  // Half an hour is the oven warming up, not a bake, and it says so.
   const preheat = isPreheat(bake.presetSeconds);
+  // Not shown on the ring itself — that's a fixed "SEKUND" label there, as in
+  // the photo — but still spoken by the transcript line below the presets.
   const status = done
     ? preheat
       ? tone.preheated
@@ -105,24 +100,21 @@ export function TimerScreen({
       : paused
         ? tone.paused
         : tone.ready;
+  const transcript = transcriptLine(voice, tone.micPrompt);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>IL FORNO</Text>
-          <Text style={styles.title}>Pizza Timer</Text>
-        </View>
+        <Text style={styles.brand}>PIZZAORO</Text>
         <Pressable
-          onPress={() => setKeepAwake((on) => !on)}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: keepAwake }}
-          accessibilityLabel="Keep the screen awake while baking"
-          style={[styles.wakePill, keepAwake && styles.wakePillOn]}
-          hitSlop={6}
+          onPress={voice.toggle}
+          accessibilityRole="button"
+          accessibilityState={{ selected: voice.listening }}
+          accessibilityLabel={voice.listening ? 'Stop listening' : 'Listen for a command'}
+          hitSlop={10}
+          style={[styles.headerMic, voice.listening && styles.headerMicOn]}
         >
-          <View style={[styles.wakeDot, keepAwake && styles.wakeDotOn]} />
-          <Text style={[styles.wakeLabel, keepAwake && styles.wakeLabelOn]}>Stay awake</Text>
+          <Icon name="mic" size={20} color={voice.listening ? Sunset.coral : Sunset.text} strokeWidth={1.7} />
         </Pressable>
       </View>
 
@@ -176,79 +168,55 @@ export function TimerScreen({
           ) : null}
         </View>
 
-        <CircularTimer progress={progress} size={ringSize} time={timeLabel(bake)} caption={status} />
+        <CircularTimer progress={progress} size={ringSize} time={timeLabel(bake)} caption="Sekund" />
 
         <View style={styles.infoRow}>
           <Text style={styles.infoText}>
-            In the oven: <Text style={styles.infoValue}>{elapsedLabel(bake)}</Text>
+            W piecu od: <Text style={styles.infoValue}>{elapsedLabel(bake)}</Text>
           </Text>
           <Text style={styles.infoText}>
-            Topping: <Text style={styles.infoValue}>{toppingLabel(settings.toppingStyle)}</Text>
+            Pizza: <Text style={styles.infoValue}>{toppingLabel(settings.toppingStyle)}</Text>
           </Text>
         </View>
-      </View>
 
-      <View style={styles.micZone}>
-        <View style={styles.micWrap}>
-          {voice.listening ? (
-            <>
-              <PulseRing delay={0} />
-              <PulseRing delay={900} />
-            </>
-          ) : null}
-          <Pressable
-            onPress={voice.toggle}
-            accessibilityRole="button"
-            accessibilityState={{ selected: voice.listening }}
-            accessibilityLabel={voice.listening ? 'Stop listening' : 'Listen for a command'}
-            style={[styles.mic, voice.listening && styles.micOn]}
-          >
-            <Icon name="mic" size={30} color={Sunset.onDisc} strokeWidth={1.7} />
-          </Pressable>
-        </View>
-        <Text style={styles.transcript} numberOfLines={2}>
-          {transcriptLine(voice, tone.micPrompt)}
+        <Text style={styles.status}>{status}</Text>
+        <Text style={styles.transcript} numberOfLines={1}>
+          {voice.listening || transcript !== tone.micPrompt ? transcript : ' '}
         </Text>
       </View>
 
-      <View style={styles.transport}>
+      <View style={styles.controls}>
         <Pressable
           onPress={actions.reset}
           accessibilityRole="button"
           accessibilityLabel="Reset the timer"
-          style={styles.secondary}
+          style={styles.controlButton}
         >
-          <Icon name="reset" size={22} color={Sunset.navyIcon} />
+          <Icon name="reset" size={19} color={Sunset.text} />
         </Pressable>
 
         <Pressable
           onPress={actions.toggleRun}
           accessibilityRole="button"
           accessibilityLabel={bake.running ? 'Pause the bake' : 'Start the bake'}
-          style={styles.primary}
+          style={[styles.controlButton, styles.controlButtonPrimary]}
         >
-          <Icon name={bake.running ? 'pause' : 'play'} size={28} color={Sunset.onDisc} />
-        </Pressable>
-
-        <Pressable
-          onPress={onOpenSettings}
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          style={styles.secondary}
-        >
-          <Icon name="settings" size={22} color={Sunset.navyIcon} />
+          <Icon name={bake.running ? 'pause' : 'play'} size={19} color={Sunset.onPill} />
         </Pressable>
       </View>
 
-      <View style={styles.hints}>
-        <Text style={styles.hintsLabel}>Try saying</Text>
-        <View style={styles.hintRow}>
-          {tone.hints.map((hint) => (
-            <View key={hint} style={styles.hint}>
-              <Text style={styles.hintText}>“{hint}”</Text>
-            </View>
-          ))}
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + Space.s2 }]}>
+        <View accessibilityRole="tab" accessibilityState={{ selected: true }} style={styles.bottomBarButton}>
+          <Icon name="timer" size={22} color={Sunset.navyIcon} strokeWidth={1.8} />
         </View>
+        <Pressable
+          onPress={onOpenSettings}
+          accessibilityRole="tab"
+          accessibilityLabel="Settings"
+          style={styles.bottomBarButton}
+        >
+          <Icon name="settings" size={22} color={Sunset.navyIconMuted} />
+        </Pressable>
       </View>
     </View>
   );
@@ -273,32 +241,6 @@ function toppingLabel(topping: AppSettings['toppingStyle']): string {
   }
 }
 
-/** One of the two rings that breathe out of the mic while it listens. */
-function PulseRing({ delay }: { delay: number }) {
-  const phase = useSharedValue(0);
-
-  useEffect(() => {
-    phase.value = 0;
-    const timer = setTimeout(() => {
-      phase.value = withRepeat(
-        withTiming(1, { duration: 1800, easing: Easing.out(Easing.quad) }),
-        -1,
-        false,
-      );
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [delay, phase]);
-
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(phase.value, [0, 1], [1, 1.6]) }],
-    opacity: interpolate(phase.value, [0, 1], [0.35, 0]),
-  }));
-
-  return <Animated.View pointerEvents="none" style={[styles.pulse, style]} />;
-}
-
-const MIC = 72;
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -312,53 +254,27 @@ const styles = StyleSheet.create({
     paddingTop: Space.s3,
     paddingBottom: Space.s2,
   },
-  kicker: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: Type.kicker,
-    letterSpacing: 2.4,
-    color: Sunset.kicker,
-  },
-  title: {
+  brand: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: Type.title,
+    letterSpacing: 1,
     color: Sunset.text,
   },
-  wakePill: {
-    flexDirection: 'row',
+  headerMic: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    gap: Space.s1,
-    paddingHorizontal: Space.s2,
-    paddingVertical: Space.s1 + 1,
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Sunset.hairline,
-    backgroundColor: Sunset.surface,
+    justifyContent: 'center',
   },
-  wakePillOn: {
+  headerMicOn: {
     backgroundColor: Sunset.chipOn,
-  },
-  wakeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Sunset.textMuted,
-  },
-  wakeDotOn: {
-    backgroundColor: Sunset.kicker,
-  },
-  wakeLabel: {
-    fontFamily: Fonts.bodyRegular,
-    fontSize: Type.chip,
-    color: Sunset.textMuted,
-  },
-  wakeLabelOn: {
-    color: Sunset.kicker,
   },
   presets: {
     flexDirection: 'row',
     alignSelf: 'stretch',
     marginHorizontal: Space.s4,
-    marginTop: Space.s2,
+    marginTop: Space.s1,
     gap: Space.s2,
   },
   preset: {
@@ -386,7 +302,7 @@ const styles = StyleSheet.create({
   centre: {
     flex: 1,
     // minHeight lets this shrink below its content on a short screen instead
-    // of overflowing into the microphone and the transport row.
+    // of overflowing into the controls and the bottom bar.
     minHeight: 0,
     alignSelf: 'stretch',
     alignItems: 'center',
@@ -431,103 +347,52 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     color: Sunset.text,
   },
-  micZone: {
-    alignItems: 'center',
-    gap: Space.s2,
-    paddingHorizontal: Space.s4,
-  },
-  micWrap: {
-    width: MIC,
-    height: MIC,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulse: {
-    position: 'absolute',
-    width: MIC,
-    height: MIC,
-    borderRadius: MIC / 2,
-    backgroundColor: Sunset.coral,
-  },
-  mic: {
-    width: MIC,
-    height: MIC,
-    borderRadius: MIC / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Sunset.redDeep,
-  },
-  micOn: {
-    backgroundColor: Sunset.coral,
+  status: {
+    fontFamily: Fonts.bodyRegular,
+    fontSize: Type.chip,
+    color: Sunset.textMuted,
   },
   transcript: {
-    minHeight: 38,
+    minHeight: 16,
     textAlign: 'center',
     fontFamily: Fonts.bodyRegular,
-    fontSize: Type.label,
-    lineHeight: 19,
-    color: Sunset.textMuted,
-  },
-  transport: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Space.s8,
-    marginHorizontal: Space.s4,
-    marginVertical: Space.s3,
-    paddingVertical: Space.s2,
-    borderRadius: Radius.lg + 20,
-    backgroundColor: Sunset.navy,
-  },
-  secondary: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primary: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Sunset.redDeep,
-    // Pops just above the dark bar, like a floating action button.
-    marginTop: -18,
-    borderWidth: 4,
-    borderColor: Sunset.bg,
-  },
-  hints: {
-    alignItems: 'center',
-    gap: Space.s2,
-    paddingHorizontal: Space.s4,
-    paddingBottom: Space.s4,
-  },
-  hintsLabel: {
-    fontFamily: Fonts.bodyRegular,
     fontSize: Type.chip,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
     color: Sunset.textMuted,
   },
-  hintRow: {
+  controls: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: Space.s2,
+    gap: Space.s3,
+    paddingVertical: Space.s2,
   },
-  hint: {
-    paddingHorizontal: Space.s3,
-    paddingVertical: Space.s1 + 2,
-    borderRadius: Radius.lg,
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Sunset.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Sunset.hairline,
-    backgroundColor: Sunset.surface,
   },
-  hintText: {
-    fontFamily: Fonts.bodyRegular,
-    fontSize: Type.chip,
-    color: Sunset.text,
+  controlButtonPrimary: {
+    backgroundColor: Sunset.redDeep,
+    borderColor: Sunset.redDeep,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: Space.s3,
+    borderTopLeftRadius: Radius.lg + 16,
+    borderTopRightRadius: Radius.lg + 16,
+    backgroundColor: Sunset.navy,
+  },
+  bottomBarButton: {
+    width: 48,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -8,6 +8,7 @@ import {
   vec,
 } from '@shopify/react-native-skia';
 import { useEffect } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import {
   Easing,
@@ -18,7 +19,7 @@ import {
 } from 'react-native-reanimated';
 
 import type { ToppingStyle } from '../domain/settings';
-import { Flame as FlameColors, PizzaRamp, mixRgb } from '../theme/tokens';
+import { Flame as FlameColors, Fonts, PizzaRamp, mixRgb } from '../theme/tokens';
 
 /**
  * The pizza, the char, and the ring of fire.
@@ -34,12 +35,12 @@ import { Flame as FlameColors, PizzaRamp, mixRgb } from '../theme/tokens';
  * churn for no visual difference. It only runs while something is actually
  * moving.
  *
- * The pie is also, literally, a clock face — a left/baked, right/raw-dough
- * split with twelve ticks and two hands, from the timer screen's warm
- * restyle. The hands read `progress`, not wall-clock time: the minute hand
- * sweeps once across the whole bake and the hour hand creeps at a twelfth of
- * that, same ratio as a real clock. They hold their own orientation and
- * never spin with a turn.
+ * The pie is also, literally, a clock face — a baked/raw-dough split on a
+ * tilted line, twelve ticks, four numerals and two hands, from the timer
+ * screen's warm restyle. The hands read `progress`, not wall-clock time: the
+ * minute hand sweeps once across the whole bake and the hour hand creeps at
+ * a twelfth of that, same ratio as a real clock. The face holds its own
+ * orientation and never spins with a turn.
  */
 
 /** The pie's own box, in dp, at the handoff's reference size. */
@@ -96,19 +97,20 @@ const FLICKER = [
   [1, 1, 1, 0.92],
 ] as const;
 
-/**
- * The clock face: a left/baked, right/raw-dough split, twelve hour ticks and
- * two hands. It reads progress the way an analogue clock reads time — the
- * minute hand sweeps once across the whole bake, the hour hand creeps at a
- * twelfth of that, exactly as on a real clock face.
- */
-const BAKED_HALF_CLIP = 'M0 0 L100 0 L100 200 L0 200 Z';
 const TICK_OUTER = 92;
 const TICK_INNER_MAJOR = 82;
 const TICK_INNER_MINOR = 87;
+const NUMERAL_R = 70;
 const MINUTE_HAND_LEN = 62;
 const HOUR_HAND_LEN = 42;
 const HAND_PIVOT_R = 3.4;
+
+const CLOCK_NUMERALS = [
+  { label: '12', angle: 0 },
+  { label: '3', angle: 90 },
+  { label: '6', angle: 180 },
+  { label: '9', angle: 270 },
+] as const;
 
 function polarPoint(angleDeg: number, r: number): { x: number; y: number } {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -127,6 +129,24 @@ function handPath(angleDeg: number, length: number): string {
   const tip = polarPoint(angleDeg, length);
   return `M 100 100 L ${tip.x} ${tip.y}`;
 }
+
+/**
+ * The baked/dough boundary, tilted rather than a plain diameter, to match
+ * the reference photo: pizza fills the lower-left, dough the upper-right,
+ * along a line from roughly 11 o'clock to 5 o'clock.
+ */
+const SPLIT_ANGLE_DEG = -35;
+const BAKED_HALF_CLIP = (() => {
+  const rad = (SPLIT_ANGLE_DEG * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  // A square covering the local x <= 0 half-plane, rotated around (100, 100)
+  // and sized well past the crust radius so the rotation never leaves a gap.
+  const FAR = 400;
+  const rotate = (x: number, y: number) => ({ x: 100 + x * c - y * s, y: 100 + x * s + y * c });
+  const corners = [rotate(-FAR, -FAR), rotate(0, -FAR), rotate(0, FAR), rotate(-FAR, FAR)];
+  return `M ${corners[0]!.x} ${corners[0]!.y} L ${corners[1]!.x} ${corners[1]!.y} L ${corners[2]!.x} ${corners[2]!.y} L ${corners[3]!.x} ${corners[3]!.y} Z`;
+})();
 
 const TURN_MS = 850;
 /** Toppings bob on this loop, staggered by index. */
@@ -237,78 +257,112 @@ export function PizzaIllustration({
   }, [centre, unit, done]);
 
   return (
-    <Canvas style={{ width: size, height: size }}>
-      {running ? <FireRing clock={clock} centre={centre} pieBox={pieBox} k={k} /> : null}
-
-      <Group transform={pieTransform}>
-        {/* The right half stays plain, unrisen dough; the left half, clipped
-            below, is the usual baked pizza. */}
-        <Circle cx={100} cy={100} r={CRUST_R} color={`rgb(${PizzaRamp.rawCrust.join(', ')})`} />
-
-        <Group clip={BAKED_HALF_CLIP}>
-          <Circle cx={100} cy={100} r={CRUST_R} color={crust} />
-          <Circle cx={100} cy={100} r={CHEESE_R} color={cheese} />
-
-          {FLECKS.map(([x, y]) => (
-            <Circle key={`fleck-${x}-${y}`} cx={x} cy={y} r={1.5} color={PizzaRamp.fleck} />
-          ))}
-
-          {toppingStyle === 'margherita'
-            ? null
-            : TOPPINGS.map(([x, y], i) => (
-                <Topping
-                  key={`topping-${x}-${y}`}
-                  clock={clock}
-                  index={i}
-                  x={x}
-                  y={y}
-                  r={toppingRadius}
-                  color={toppingColor}
-                  running={running}
-                />
-              ))}
-
-          {CHAR.slice(0, charCount).map(([x, y, r]) => (
-            <Circle key={`char-${x}-${y}`} cx={x} cy={y} r={r} color={PizzaRamp.char} opacity={charOpacity} />
-          ))}
+    <View style={{ width: size, height: size }}>
+      <Canvas style={StyleSheet.absoluteFill}>
+        {running ? <FireRing clock={clock} centre={centre} pieBox={pieBox} k={k} /> : null}
+  
+        <Group transform={pieTransform}>
+          {/* The right half stays plain, unrisen dough; the left half, clipped
+              below, is the usual baked pizza. */}
+          <Circle cx={100} cy={100} r={CRUST_R} color={`rgb(${PizzaRamp.rawCrust.join(', ')})`} />
+  
+          <Group clip={BAKED_HALF_CLIP}>
+            <Circle cx={100} cy={100} r={CRUST_R} color={crust} />
+            <Circle cx={100} cy={100} r={CHEESE_R} color={cheese} />
+  
+            {FLECKS.map(([x, y]) => (
+              <Circle key={`fleck-${x}-${y}`} cx={x} cy={y} r={1.5} color={PizzaRamp.fleck} />
+            ))}
+  
+            {toppingStyle === 'margherita'
+              ? null
+              : TOPPINGS.map(([x, y], i) => (
+                  <Topping
+                    key={`topping-${x}-${y}`}
+                    clock={clock}
+                    index={i}
+                    x={x}
+                    y={y}
+                    r={toppingRadius}
+                    color={toppingColor}
+                    running={running}
+                  />
+                ))}
+  
+            {CHAR.slice(0, charCount).map(([x, y, r]) => (
+              <Circle key={`char-${x}-${y}`} cx={x} cy={y} r={r} color={PizzaRamp.char} opacity={charOpacity} />
+            ))}
+          </Group>
         </Group>
-      </Group>
-
-      {/* Ticks and hands read like a clock face, so they hold their own
-          orientation rather than spinning with a turn. */}
-      <Group transform={faceTransform}>
-        {Array.from({ length: 12 }, (_, i) => (
+  
+        {/* Ticks and hands read like a clock face, so they hold their own
+            orientation rather than spinning with a turn. */}
+        <Group transform={faceTransform}>
+          {Array.from({ length: 12 }, (_, i) => (
+            <Path
+              key={`tick-${i}`}
+              path={tickPath(i)}
+              style="stroke"
+              strokeWidth={i % 3 === 0 ? 1.8 : 1}
+              strokeCap="round"
+              color={PizzaRamp.char}
+              opacity={0.75}
+            />
+          ))}
           <Path
-            key={`tick-${i}`}
-            path={tickPath(i)}
+            path={handPath(hourAngle, HOUR_HAND_LEN)}
             style="stroke"
-            strokeWidth={i % 3 === 0 ? 1.8 : 1}
+            strokeWidth={3.2}
             strokeCap="round"
             color={PizzaRamp.char}
-            opacity={0.75}
           />
-        ))}
-        <Path
-          path={handPath(hourAngle, HOUR_HAND_LEN)}
-          style="stroke"
-          strokeWidth={3.2}
-          strokeCap="round"
-          color={PizzaRamp.char}
-        />
-        <Path
-          path={handPath(minuteAngle, MINUTE_HAND_LEN)}
-          style="stroke"
-          strokeWidth={2.2}
-          strokeCap="round"
-          color={PizzaRamp.char}
-        />
-        <Circle cx={100} cy={100} r={HAND_PIVOT_R} color={PizzaRamp.char} />
-      </Group>
+          <Path
+            path={handPath(minuteAngle, MINUTE_HAND_LEN)}
+            style="stroke"
+            strokeWidth={2.2}
+            strokeCap="round"
+            color={PizzaRamp.char}
+          />
+          <Circle cx={100} cy={100} r={HAND_PIVOT_R} color={PizzaRamp.char} />
+        </Group>
+  
+        {done ? <Steam clock={clock} centre={centre} pieBox={pieBox} k={k} /> : null}
+      </Canvas>
 
-      {done ? <Steam clock={clock} centre={centre} pieBox={pieBox} k={k} /> : null}
-    </Canvas>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {CLOCK_NUMERALS.map(({ label, angle }) => {
+          const p = polarPoint(angle, NUMERAL_R);
+          const x = centre + (p.x - 100) * unit;
+          const y = centre + (p.y - 100) * unit;
+          return (
+            <View
+              key={label}
+              style={[styles.numeralBox, { left: x - NUMERAL_BOX / 2, top: y - NUMERAL_BOX / 2 }]}
+            >
+              <Text style={[styles.numeral, { fontSize: 13 * unit }]}>{label}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 }
+
+const NUMERAL_BOX = 22;
+
+const styles = StyleSheet.create({
+  numeralBox: {
+    position: 'absolute',
+    width: NUMERAL_BOX,
+    height: NUMERAL_BOX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numeral: {
+    fontFamily: Fonts.bodySemiBold,
+    color: PizzaRamp.char,
+  },
+});
 
 /* ── toppings ────────────────────────────────────────────────────────────── */
 

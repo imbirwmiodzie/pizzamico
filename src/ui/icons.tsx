@@ -1,17 +1,19 @@
-import { Canvas, Group, Path } from '@shopify/react-native-skia';
+import { Canvas, Circle, Group, Path } from '@shopify/react-native-skia';
 import type { ReactElement } from 'react';
 
 /**
- * The handoff's six line icons, drawn as Skia paths rather than pulled in as
+ * The handoff's line icons, drawn as Skia paths rather than pulled in as
  * an icon font: Skia is already a dependency for the pizza, and a path is the
  * only thing that keeps the 1.6-unit stroke identical at every size.
  *
  * Every path is authored in the same 24-unit box the handoff's SVGs use, so
- * they can be diffed against the prototype one glyph at a time.
+ * they can be diffed against the prototype one glyph at a time. `timer` is
+ * the one exception — added for the bottom nav bar in the warm restyle, not
+ * from the handoff, styled to match the others by eye.
  */
-export type IconName = 'play' | 'pause' | 'reset' | 'mic' | 'settings' | 'back';
+export type IconName = 'play' | 'pause' | 'reset' | 'mic' | 'settings' | 'back' | 'timer';
 
-type Glyph = { stroke?: readonly string[]; fill?: readonly string[] };
+type Glyph = { stroke?: readonly string[]; fill?: readonly string[]; circle?: { cx: number; cy: number; r: number } };
 
 const GLYPHS: Record<IconName, Glyph> = {
   // Solid, like the prototype's transport: the play triangle reads as a
@@ -35,6 +37,10 @@ const GLYPHS: Record<IconName, Glyph> = {
     ],
   },
   back: { stroke: ['M15 18l-6-6 6-6'] },
+  timer: {
+    circle: { cx: 12, cy: 14, r: 8 },
+    stroke: ['M10 2 L14 2', 'M12 14 L15 11'],
+  },
 };
 
 export function Icon({
@@ -68,6 +74,16 @@ export function Icon({
             strokeJoin="round"
           />
         ))}
+        {glyph.circle ? (
+          <Circle
+            cx={glyph.circle.cx}
+            cy={glyph.circle.cy}
+            r={glyph.circle.r}
+            color={color}
+            style="stroke"
+            strokeWidth={strokeWidth}
+          />
+        ) : null}
       </Group>
     </Canvas>
   );

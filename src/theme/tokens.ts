@@ -126,9 +126,10 @@ export const Sunset = {
   onDisc: '#fff8f4',
   onDiscMuted: 'rgba(255, 248, 244, 0.82)',
 
-  /** The bottom transport bar. */
+  /** The bottom nav bar. */
   navy: '#2a211c',
   navyIcon: '#f3ece3',
+  navyIconMuted: 'rgba(243, 236, 227, 0.4)',
 } as const;
 
 /**
