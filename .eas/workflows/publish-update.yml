@@ -1,0 +1,27 @@
+# The everyday path: JS, UI, timer rules, copy and voice parsing ship over the
+# air to an already-installed APK and spend no build quota.
+#
+# Published to the `preview` EAS branch rather than the git branch, because
+# that is the channel the preview build subscribes to. `runtimeVersion` is on
+# the fingerprint policy, so an update only reaches a build whose native side
+# matches this commit — change the Kotlin module or a native dependency and
+# this becomes a no-op until a new build exists, which is the correct
+# behaviour rather than a bug.
+name: Publish update
+
+on:
+  push:
+    # Belt and braces on the branch pattern. eas-cli's own template ships
+    # `['*']` for "any push", and it is not documented whether `*` crosses a
+    # slash — if it does not, a branch called claude/something would never
+    # have fired this. Listing all three costs nothing and removes the
+    # question. It can also be run by hand from the Workflows tab.
+    branches: ['*', 'claude/**', 'main']
+
+jobs:
+  publish_preview_update:
+    name: Publish preview update
+    type: update
+    params:
+      branch: preview
+      platform: android

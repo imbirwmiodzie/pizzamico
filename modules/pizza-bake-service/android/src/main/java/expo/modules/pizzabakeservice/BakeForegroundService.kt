@@ -160,6 +160,10 @@ class BakeForegroundService : Service() {
     }
 
     private fun createChannel() {
+        // Channels arrived in API 26; below that the notification's own
+        // priority is the whole story.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Bake in progress",
@@ -196,15 +200,22 @@ class BakeForegroundService : Service() {
             val intoSecond = millis % 1000L
             return if (intoSecond <= 0L) 1000L else intoSecond
         }
+    }
 
-        /** How the module hears about cues, so the pizza can flip on screen. */
-        object Listener {
-            @Volatile
-            var onEvent: ((String) -> Unit)? = null
+    /**
+     * How the module hears about cues, so the pizza can flip on screen.
+     *
+     * Deliberately a nested object on the class rather than one inside the
+     * companion: a classifier declared in a companion is only reachable as
+     * `BakeForegroundService.Companion.Listener`, and the JS-facing module
+     * refers to it as `BakeForegroundService.Listener`.
+     */
+    object Listener {
+        @Volatile
+        var onEvent: ((String) -> Unit)? = null
 
-            fun emit(event: String) {
-                onEvent?.invoke(event)
-            }
+        fun emit(event: String) {
+            onEvent?.invoke(event)
         }
     }
 }

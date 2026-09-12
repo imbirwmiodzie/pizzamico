@@ -8,9 +8,22 @@ export type VoiceTone = 'casual' | 'formal';
 export type OvenPreset = 'home' | 'woodFired';
 
 export const OVEN_PRESETS: Record<OvenPreset, readonly number[]> = {
-  home: [60, 90, 720],
-  woodFired: [45, 60, 90],
+  home: [60, 90, 1800],
+  // Every oven needs preheating, and a wood-fired one more than most, so the
+  // long preset is on both rather than being a quirk of the home oven.
+  woodFired: [45, 60, 90, 1800],
 };
+
+/**
+ * A duration this long is not a bake — nothing survives half an hour in a
+ * pizza oven. It is the oven coming up to temperature, which is a different
+ * thing to watch and a different thing to be told when it finishes.
+ */
+export const PREHEAT_FROM_SECONDS = 1800;
+
+export function isPreheat(seconds: number): boolean {
+  return seconds >= PREHEAT_FROM_SECONDS;
+}
 
 /** "60s", "90s", "12 min" — matches the labels in the prototype. */
 export function presetLabel(seconds: number): string {

@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+web-build/
+# Anchored to the root on purpose. These exist to ignore prebuild output at
+# the project root; unanchored they also swallow modules/*/android, which
+# silently drops new native files from the repo and fails the build later
+# with a missing-resource error.
+/android/
+/ios/
+*.log
+npm-debug.*
+yarn-error.*
+.DS_Store
+expo-env.d.ts

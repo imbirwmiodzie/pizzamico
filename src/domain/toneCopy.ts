@@ -7,6 +7,9 @@ import type { VoiceTone } from './settings';
 export type ToneCopy = {
   ready: string;
   baking: string;
+  /** The long preset is the oven coming up to heat, not a bake. */
+  preheating: string;
+  preheated: string;
   paused: string;
   done: string;
   micPrompt: string;
@@ -19,6 +22,8 @@ export type ToneCopy = {
 const CASUAL: ToneCopy = {
   ready: 'Ready to bake',
   baking: 'Baking…',
+  preheating: 'Heating the oven…',
+  preheated: 'Oven is ready!',
   paused: 'Paused',
   done: 'La pizza è pronta!!!',
   micPrompt: 'Tap to speak, or say "Hey timer, start"',
@@ -31,6 +36,8 @@ const CASUAL: ToneCopy = {
 const FORMAL: ToneCopy = {
   ready: 'Standing by',
   baking: 'Bake in progress',
+  preheating: 'Preheat in progress',
+  preheated: 'Oven at temperature',
   paused: 'Bake paused',
   done: 'La pizza è pronta!!!',
   micPrompt: 'Tap to speak, or say "Timer, commence"',
@@ -48,6 +55,8 @@ export function toneCopy(tone: VoiceTone): ToneCopy {
 export const ITALIAN_LINES = {
   turn: 'GIRA! GIRA GIRA!',
   done: 'LA PIZZA È PRONTA!!!',
+  /** Shouted at the end of a preheat — there is no pizza in there yet. */
+  preheatDone: 'IL FORNO È PRONTO!',
   /** On-screen toast for the halfway turn. */
   turnToast: 'Gira, gira! 🍕',
 } as const;
