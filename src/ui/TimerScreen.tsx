@@ -1,6 +1,5 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useRef, useState } from 'react';
-import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +14,7 @@ import { useVoice } from '../state/useVoice';
 import { Fonts, Radius, Space, Sunset, Type, mixRgb } from '../theme/tokens';
 import { CircularTimer } from './CircularTimer';
 import { OvenIllustration } from './OvenIllustration';
-import { ILLUSTRATION_BOX, PizzaIllustration } from './PizzaIllustration';
+import { PizzaIllustration } from './PizzaIllustration';
 import { Icon } from './icons';
 
 /**
@@ -44,7 +43,7 @@ export function TimerScreen({
   onOpenSettings: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { bake, actions } = useBake();
   const voice = useVoice(settings.voiceTone);
 
@@ -75,16 +74,13 @@ export function TimerScreen({
     return () => clearTimeout(timer);
   }, [bake.turnTrigger]);
 
-  // Measured rather than guessed: the slot takes whatever height is left once
-  // the readout, the presets and everything below them have had theirs, so
-  // the illustration can never push the bottom bar off its own space.
-  const [slot, setSlot] = useState({ width: 0, height: 0 });
-  const onSlotLayout = (event: LayoutChangeEvent) => {
-    const { width: w, height: h } = event.nativeEvent.layout;
-    setSlot((previous) => (previous.width === w && previous.height === h ? previous : { width: w, height: h }));
-  };
-  const illustrationSize = Math.max(0, Math.min(slot.width, slot.height, ILLUSTRATION_BOX));
-  const ringSize = Math.min(width * 0.6, 248);
+  // Sized straight off the screen, like the reference photo's composition —
+  // the pizza fills most of the width and the ring overlaps its bottom edge,
+  // rather than each shrinking to fit whatever space is left over.
+  const illustrationSize = Math.min(width * 0.86, height * 0.42, 360);
+  const ringSize = Math.min(width * 0.64, 270);
+  const ringOverlap = illustrationSize * 0.14;
+  const stackWidth = Math.max(illustrationSize, ringSize);
 
   const preheat = isPreheat(bake.presetSeconds);
   // Not shown on the ring itself — that's a fixed "SEKUND" label there, as in
@@ -143,32 +139,47 @@ export function TimerScreen({
       </View>
 
       <View style={styles.centre}>
-        <View style={styles.illustrationSlot} onLayout={onSlotLayout}>
-          {illustrationSize <= 0 ? null : preheat ? (
-            <OvenIllustration
-              progress={progress}
-              running={bake.running}
-              done={done}
-              size={illustrationSize}
-            />
-          ) : (
-            <PizzaIllustration
-              progress={progress}
-              running={bake.running}
-              done={done}
-              toppingStyle={settings.toppingStyle}
-              turnTrigger={bake.turnTrigger}
-              size={illustrationSize}
-            />
-          )}
-          {toast ? (
-            <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.toast}>
-              <Text style={styles.toastText}>{ITALIAN_LINES.turnToast}</Text>
-            </Animated.View>
-          ) : null}
-        </View>
+        {/* The circle sits in normal flow; the pizza floats above it,
+            absolutely positioned so it paints on top and overlaps the
+            circle's top edge, like the reference photo. `marginTop` here
+            reserves the room the pizza pokes up into so nothing above
+            (the presets) collides with it. */}
+        <View style={{ width: stackWidth, marginTop: illustrationSize - ringOverlap, alignItems: 'center' }}>
+          <CircularTimer progress={progress} size={ringSize} time={timeLabel(bake)} caption="Sekund" />
 
-        <CircularTimer progress={progress} size={ringSize} time={timeLabel(bake)} caption="Sekund" />
+          <View
+            style={{
+              position: 'absolute',
+              top: -(illustrationSize - ringOverlap),
+              left: (stackWidth - illustrationSize) / 2,
+              width: illustrationSize,
+              height: illustrationSize,
+            }}
+          >
+            {preheat ? (
+              <OvenIllustration
+                progress={progress}
+                running={bake.running}
+                done={done}
+                size={illustrationSize}
+              />
+            ) : (
+              <PizzaIllustration
+                progress={progress}
+                running={bake.running}
+                done={done}
+                toppingStyle={settings.toppingStyle}
+                turnTrigger={bake.turnTrigger}
+                size={illustrationSize}
+              />
+            )}
+            {toast ? (
+              <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.toast}>
+                <Text style={styles.toastText}>{ITALIAN_LINES.turnToast}</Text>
+              </Animated.View>
+            ) : null}
+          </View>
+        </View>
 
         <View style={styles.infoRow}>
           <Text style={styles.infoText}>
@@ -308,13 +319,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Space.s2,
-  },
-  illustrationSlot: {
-    flex: 1,
-    minHeight: 0,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   toast: {
     position: 'absolute',
