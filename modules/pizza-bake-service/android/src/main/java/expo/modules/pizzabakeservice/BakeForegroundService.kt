@@ -174,6 +174,20 @@ class BakeForegroundService : Service() {
     private fun notificationManager() =
         getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    /**
+     * How the module hears about cues, so the pizza can flip on screen.
+     * A direct nested object, not inside the companion, so the module can
+     * reach it as `BakeForegroundService.Listener`.
+     */
+    object Listener {
+        @Volatile
+        var onEvent: ((String) -> Unit)? = null
+
+        fun emit(event: String) {
+            onEvent?.invoke(event)
+        }
+    }
+
     companion object {
         const val CHANNEL_ID = "bake_progress"
         const val NOTIFICATION_ID = 41
@@ -195,16 +209,6 @@ class BakeForegroundService : Service() {
             val millis = endAt - System.currentTimeMillis()
             val intoSecond = millis % 1000L
             return if (intoSecond <= 0L) 1000L else intoSecond
-        }
-
-        /** How the module hears about cues, so the pizza can flip on screen. */
-        object Listener {
-            @Volatile
-            var onEvent: ((String) -> Unit)? = null
-
-            fun emit(event: String) {
-                onEvent?.invoke(event)
-            }
         }
     }
 }
