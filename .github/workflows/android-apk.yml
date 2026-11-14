@@ -76,7 +76,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
@@ -104,7 +104,7 @@ jobs:
           task=assemble${VARIANT^}
           ./gradlew "$task" \
             -PreactNativeArchitectures="$ABIS" \
-            --no-daemon --stacktrace
+            --no-daemon
 
       - name: Sign with release key
         if: env.VARIANT == 'release' && env.HAS_KEYSTORE == 'true'
