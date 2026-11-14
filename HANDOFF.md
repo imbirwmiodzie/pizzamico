@@ -9,22 +9,22 @@ the architecture and the one rule about `endAt`.
 
 | Area | Files | Notes |
 |---|---|---|
-| Project scaffolding | `package.json`, `app.json`, `eas.json`, `tsconfig.json`, `babel.config.js` | Expo SDK 57, RN 0.86. Dependency versions are best-known, not resolved — **run `npx expo install --fix` once** and commit the result. |
-| CI | `.github/workflows/build.yml`, `update.yml` | Native changes build; everything else ships over the air. Both run tests + `tsc --noEmit` first. |
+| Project scaffolding | `package.json`, `app.json`, `eas.json`, `tsconfig.json`, `babel.config.js` | Expo SDK 57, RN 0.86. Versions resolved with `npx expo install --fix`; lockfile committed. |
+| CI | `.github/workflows/android-apk.yml` | Tests + `tsc --noEmit`, then a release APK built on GitHub runners for every push; tags publish a Release. See `CLAUDE.md`. |
 | Domain logic | `src/domain/*.ts` | Ported 1:1 from the Kotlin build. Pure, no platform imports. |
-| Unit tests | `__tests__/*.test.ts` | 23 assertions covering the countdown and the parser. **They have never been run by Jest** — they were verified by executing the same expectations against the real TypeScript with `node --experimental-strip-types`, which passed 23/23. Run `npm test` first thing. |
+| Unit tests | `__tests__/*.test.ts` | 24 tests covering the countdown and the parser; pass under Jest. |
 | Native module | `modules/pizza-bake-service/**` | Android foreground service + shouted TTS + 880 Hz tick. iOS stub. Never compiled — expect to fix a Gradle detail or two. |
 | State | `src/state/*.ts` | `bakeStore` owns the live bake; `useSettings` persists the three tweakables. |
 | Design tokens | `src/theme/tokens.ts` | Verbatim from the handoff's `styles.css`. |
 
 **Not built yet**
 
-- `App.tsx` and `index.ts`'s target — the root component and the screen switch.
+- `App.tsx` — currently a placeholder so the first APK can build; needs the real screen switch.
 - `src/ui/PizzaIllustration.tsx` — the pizza and the flame ring, in Skia.
 - `src/ui/TimerScreen.tsx`, `src/ui/SettingsScreen.tsx`.
 - `src/ui/icons.tsx` — six line icons.
 - `src/state/useVoice.ts` — the `expo-speech-recognition` wiring.
-- `assets/icon.png` — app icon; `app.json` references it.
+- `assets/icon.png` — currently a placeholder drawn from the pizza ramp colours.
 
 Nothing in this list is hard, and none of it needs a build to iterate on once
 the first APK exists.
@@ -106,15 +106,7 @@ unsupported/denied message → `tone.micPrompt`.
 
 ## Before the first build
 
-1. `npm install && npx expo install --fix` — then commit the corrected
-   versions and the lockfile.
-2. `npm test && npm run lint` — the tests have never actually run under Jest.
-3. `npx eas init` — replaces the two `REPLACE_WITH_YOUR_EAS_PROJECT_ID`
-   placeholders in `app.json`.
-4. `./push.sh` — first push to GitHub.
-5. Add `EXPO_TOKEN` to the repo's Actions secrets, then let the workflow build,
-   or run `npx eas build -p android --profile preview` directly.
-
-Expect the first native build to need a fix or two in
+Push to GitHub; the `Android APK` workflow builds it. Download the APK from
+the run's Artifacts. Expect the first native build to need a fix or two in
 `modules/pizza-bake-service/android/build.gradle` — it was written without a
 compiler to check it against.

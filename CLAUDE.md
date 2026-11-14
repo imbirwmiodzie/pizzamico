@@ -42,22 +42,28 @@ own idea of "remaining" — that is how the shout and the display drift apart.
 
 ## Build and iterate
 
-Free EAS accounts get 15 Android builds a month, so the CI is split:
+`.github/workflows/android-apk.yml` builds the APK on GitHub's own runners
+(`expo prebuild` + Gradle), so it spends no EAS builds and needs no token:
 
-- `.github/workflows/build.yml` — fires only on native changes (`app.json`,
-  `package.json`, `plugins/`, `modules/`). Spends a build.
-- `.github/workflows/update.yml` — every other push publishes an EAS Update
-  over the air. Spends nothing.
+- every push and PR runs `npm test` and `tsc --noEmit`, then builds a release
+  APK and attaches it to the run (Actions → the run → Artifacts);
+- a `v*` tag does the same and publishes a GitHub Release with the APK;
+- a manual run can build `debug` instead — the dev client for
+  `npx expo start --dev-client`.
 
-Both run the unit tests and `tsc --noEmit` first. A native change means: new
-or upgraded native dependency, changed permissions or plugins, edits to the
-Kotlin module, or an SDK bump. Everything else — UI, timer rules, copy, voice
-parsing — ships over the air to an already-installed APK.
+`android/` and `ios/` are generated and gitignored; CI regenerates them each
+time, so native config lives in `app.json` and `modules/`, never in `android/`.
+The build targets `arm64-v8a` only (the `ABIS` env in the workflow).
 
-Runtime versioning is on the `fingerprint` policy, so an update is only
-delivered to a build whose native fingerprint matches. If you change native
-code, the fingerprint changes and a rebuild is required; that is the signal,
-not a guess.
+Signing: without secrets the APK is signed with the Expo template's debug key
+— fine for sideloading, and stable, so builds install over each other. For a
+real key, add `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as Actions secrets. Switching
+keys means uninstalling the old build once.
+
+Over-the-air updates are not wired up: `expo-updates` is not installed and the
+EAS project id in `app.json` is still a placeholder. The `fingerprint`
+runtime policy is ready for when they are.
 
 ## Commands
 
