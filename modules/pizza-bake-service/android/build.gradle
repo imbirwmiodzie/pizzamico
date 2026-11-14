@@ -1,34 +1,19 @@
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
+// SDK 57 form: expo-module-gradle-plugin supplies Kotlin, compile/target/min
+// SDK, the JVM target and the expo-modules-core dependency. The older
+// `apply from: ExpoModulesCorePlugin.gradle` setup fails on Gradle 9 with
+// "SoftwareComponent with name 'release' not found".
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
 
 group = 'expo.modules.pizzabakeservice'
 version = '1.0.0'
 
-def expoModulesCorePlugin = new File(
-  project(":expo-modules-core").projectDir.absolutePath,
-  "ExpoModulesCorePlugin.gradle"
-)
-apply from: expoModulesCorePlugin
-applyKotlinExpoModulesCorePlugin()
-
 android {
   namespace "expo.modules.pizzabakeservice"
-  defaultConfig {
-    minSdkVersion 24
-    targetSdkVersion 35
-  }
-  compileSdkVersion 35
-  compileOptions {
-    sourceCompatibility JavaVersion.VERSION_17
-    targetCompatibility JavaVersion.VERSION_17
-  }
-  kotlinOptions {
-    jvmTarget = "17"
-  }
 }
 
 dependencies {
-  implementation project(':expo-modules-core')
-  implementation "org.jetbrains.kotlin:kotlin-stdlib:${getKotlinVersion()}"
   implementation "androidx.core:core-ktx:1.13.1"
 }
